@@ -15,18 +15,16 @@ export async function GET() {
 
   const personaEnTurno = personas.length > 0 ? personas[configuracion.turnoActual % personas.length] : null
 
-  return NextResponse.json({ configuracion, personas, personaEnTurno })
+  const series = await prisma.serie.findMany({ orderBy: { codigo: 'asc' } })
+
+  return NextResponse.json({ configuracion, personas, personaEnTurno, series })
 }
 
 export async function PUT(request: NextRequest) {
   const body = await request.json()
-  const { consecutivoActual, turnoActual } = body as {
-    consecutivoActual?: number
-    turnoActual?: number
-  }
+  const { turnoActual } = body as { turnoActual?: number }
 
-  const data: { consecutivoActual?: number; turnoActual?: number } = {}
-  if (typeof consecutivoActual === 'number') data.consecutivoActual = consecutivoActual
+  const data: { turnoActual?: number } = {}
   if (typeof turnoActual === 'number') data.turnoActual = turnoActual
 
   const configuracion = await prisma.configuracion.upsert({

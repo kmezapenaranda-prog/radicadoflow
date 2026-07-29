@@ -56,7 +56,8 @@ interface Persona {
 }
 
 interface Radicado {
-  consecutivo: number
+  numero: number
+  serie: { codigo: string }
   esGap: boolean
   fechaCreacion: string
   persona: { id: number; nombre: string } | null
@@ -77,7 +78,7 @@ export default function InformesPage() {
       const [resInforme, resPersonas, resRadicados] = await Promise.all([
         fetch(`/api/informes/mensual?mes=${mes}&anio=${anio}`),
         fetch('/api/personas'),
-        fetch(`/api/radicados?mes=${mes}&anio=${anio}&orden=consecutivo&dir=asc&limit=2000`),
+        fetch(`/api/radicados?mes=${mes}&anio=${anio}&dir=asc&limit=2000`),
       ])
       setInforme(await resInforme.json())
       const dataPersonas = await resPersonas.json()

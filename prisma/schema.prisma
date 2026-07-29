@@ -14,10 +14,22 @@ datasource db {
 }
 
 model Configuracion {
-  id                Int      @id @default(1)
-  consecutivoActual Int      @default(0)
-  turnoActual       Int      @default(0)
-  updatedAt         DateTime @updatedAt
+  id          Int      @id @default(1)
+  turnoActual Int      @default(0)
+  updatedAt   DateTime @updatedAt
+}
+
+// Una serie de consecutivos con su propio prefijo (CUEM, CUPE, UCI, ...).
+// Cada serie lleva su propia numeración y detección de gaps.
+model Serie {
+  id                Int        @id @default(autoincrement())
+  codigo            String     @unique // "CUEM", "CUPE", "UCI"
+  // Si es false, los radicados de esta serie se registran pero NO se
+  // reparten a los trabajadores (ej: UCI se deja sin asignar).
+  distribuible      Boolean    @default(true)
+  consecutivoActual Int        @default(0)
+  radicados         Radicado[]
+  createdAt         DateTime   @default(now())
 }
 
 model Persona {
@@ -32,7 +44,11 @@ model Persona {
 
 model Radicado {
   id            Int      @id @default(autoincrement())
-  consecutivo   Int      @unique
+  serieId       Int
+  serie         Serie    @relation(fields: [serieId], references: [id])
+  numero        Int
+  // Id de referencia del Excel de origen (columna "Id"), para trazabilidad.
+  idExterno     Int?
   descripcion   String?
   personaId     Int?
   persona       Persona? @relation(fields: [personaId], references: [id])
@@ -41,4 +57,6 @@ model Radicado {
   fechaCreacion DateTime @default(now())
   mes           Int
   anio          Int
+
+  @@unique([serieId, numero])
 }

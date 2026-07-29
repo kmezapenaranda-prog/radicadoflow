@@ -13,17 +13,23 @@ export async function GET(request: NextRequest) {
 
   const radicados = await prisma.radicado.findMany({
     where: { mes, anio },
-    include: { persona: true },
-    orderBy: { consecutivo: 'asc' },
+    include: { persona: true, serie: true },
+    orderBy: [{ serieId: 'asc' }, { numero: 'asc' }],
   })
 
   const reales = radicados.filter((r) => !r.esGap)
   const gaps = radicados.filter((r) => r.esGap)
 
+  function estadoDe(r: (typeof radicados)[number]) {
+    if (r.esGap) return 'GAP'
+    if (!r.serie.distribuible) return 'No aplica'
+    return 'OK'
+  }
+
   const porPersonaMap = new Map<string, number>()
   const porDiaMap = new Map<string, number>()
   for (const r of reales) {
-    const nombre = r.persona?.nombre ?? 'Sin asignar'
+    const nombre = r.persona?.nombre ?? (r.serie.distribuible ? 'Sin asignar' : `Sin repartir (${r.serie.codigo})`)
     porPersonaMap.set(nombre, (porPersonaMap.get(nombre) ?? 0) + 1)
     const fecha = r.fechaCreacion.toISOString().slice(0, 10)
     porDiaMap.set(fecha, (porDiaMap.get(fecha) ?? 0) + 1)
@@ -55,12 +61,12 @@ export async function GET(request: NextRequest) {
   detalle.getRow(1).font = { bold: true }
   for (const r of radicados) {
     detalle.addRow([
-      r.consecutivo,
+      `${r.serie.codigo}-${r.numero}`,
       r.persona?.nombre ?? '',
       r.descripcion ?? '',
       r.creadoPor ?? '',
       r.esGap ? '' : r.fechaCreacion.toISOString().replace('T', ' ').slice(0, 16),
-      r.esGap ? 'GAP' : 'OK',
+      estadoDe(r),
     ])
   }
   detalle.columns.forEach((col) => (col.width = 20))
@@ -70,8 +76,8 @@ export async function GET(request: NextRequest) {
   consecutivos.getRow(1).font = { bold: true }
   for (const r of radicados) {
     const row = consecutivos.addRow([
-      r.consecutivo,
-      r.esGap ? 'GAP' : 'OK',
+      `${r.serie.codigo}-${r.numero}`,
+      estadoDe(r),
       r.persona?.nombre ?? '',
       r.esGap ? '' : r.fechaCreacion.toISOString().replace('T', ' ').slice(0, 16),
     ])

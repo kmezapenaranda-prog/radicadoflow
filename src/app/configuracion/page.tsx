@@ -36,7 +36,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
 
 interface Persona {
@@ -49,8 +48,14 @@ interface Persona {
 
 interface Configuracion {
   id: number
-  consecutivoActual: number
   turnoActual: number
+}
+
+interface Serie {
+  id: number
+  codigo: string
+  distribuible: boolean
+  consecutivoActual: number
 }
 
 export default function ConfiguracionPage() {
@@ -64,9 +69,11 @@ export default function ConfiguracionPage() {
   const [emailNuevo, setEmailNuevo] = useState('')
   const [guardandoPersona, setGuardandoPersona] = useState(false)
 
-  const [consecutivoInicial, setConsecutivoInicial] = useState('')
   const [turnoInicialId, setTurnoInicialId] = useState<string>('')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
+
+  const [series, setSeries] = useState<Serie[]>([])
+  const [edicionesConsecutivo, setEdicionesConsecutivo] = useState<Record<number, string>>({})
 
   async function cargarDatos() {
     setCargando(true)
@@ -81,8 +88,11 @@ export default function ConfiguracionPage() {
       setPersonas(dataPersonas.personas)
       setConfiguracion(dataConfig.configuracion)
       setPersonaEnTurnoId(dataConfig.personaEnTurno?.id ?? null)
-      setConsecutivoInicial(String(dataConfig.configuracion.consecutivoActual))
       setTurnoInicialId(dataConfig.personaEnTurno ? String(dataConfig.personaEnTurno.id) : '')
+      setSeries(dataConfig.series ?? [])
+      setEdicionesConsecutivo(
+        Object.fromEntries((dataConfig.series ?? []).map((s: Serie) => [s.id, String(s.consecutivoActual)]))
+      )
     } catch {
       toast.error('No se pudo cargar la configuración')
     } finally {
@@ -167,15 +177,10 @@ export default function ConfiguracionPage() {
     }
   }
 
-  async function guardarConfiguracionConsecutivos() {
-    const consecutivo = Number(consecutivoInicial)
-    if (!Number.isInteger(consecutivo) || consecutivo < 0) {
-      toast.error('El consecutivo inicial debe ser un número entero válido')
-      return
-    }
+  async function guardarTurnoInicial() {
     if (
       !confirm(
-        'Vas a cambiar el consecutivo y/o el turno inicial. Esto puede afectar la asignación de próximos radicados. ¿Continuar?'
+        'Vas a cambiar el turno inicial. Esto afecta a quién se le asignará el próximo radicado. ¿Continuar?'
       )
     ) {
       return
@@ -190,18 +195,62 @@ export default function ConfiguracionPage() {
       const res = await fetch('/api/configuracion', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          consecutivoActual: consecutivo,
-          turnoActual: turnoActual >= 0 ? turnoActual : 0,
-        }),
+        body: JSON.stringify({ turnoActual: turnoActual >= 0 ? turnoActual : 0 }),
       })
       if (!res.ok) throw new Error()
-      toast.success('Configuración actualizada')
+      toast.success('Turno inicial actualizado')
       await cargarDatos()
     } catch {
-      toast.error('No se pudo actualizar la configuración')
+      toast.error('No se pudo actualizar el turno')
     } finally {
       setGuardandoConfig(false)
+    }
+  }
+
+  async function toggleDistribuible(serie: Serie) {
+    const mensaje = serie.distribuible
+      ? `¿Dejar de repartir la serie ${serie.codigo} a los trabajadores? Sus radicados quedarán registrados sin asignar.`
+      : `¿Volver a repartir la serie ${serie.codigo} a los trabajadores?`
+    if (!confirm(mensaje)) return
+
+    try {
+      const res = await fetch(`/api/series/${serie.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ distribuible: !serie.distribuible }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Serie actualizada')
+      await cargarDatos()
+    } catch {
+      toast.error('No se pudo actualizar la serie')
+    }
+  }
+
+  async function guardarConsecutivoSerie(serie: Serie) {
+    const valor = Number(edicionesConsecutivo[serie.id])
+    if (!Number.isInteger(valor) || valor < 0) {
+      toast.error('El consecutivo debe ser un número entero válido')
+      return
+    }
+    if (
+      !confirm(
+        `¿Cambiar el consecutivo actual de ${serie.codigo} a ${valor}? Esto afecta la detección de gaps futuros.`
+      )
+    ) {
+      return
+    }
+    try {
+      const res = await fetch(`/api/series/${serie.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ consecutivoActual: valor }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Consecutivo actualizado')
+      await cargarDatos()
+    } catch {
+      toast.error('No se pudo actualizar el consecutivo')
     }
   }
 
@@ -349,57 +398,99 @@ export default function ConfiguracionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Consecutivos y turno</CardTitle>
+          <CardTitle>Turno</CardTitle>
           <CardDescription>
-            Úsalo para inicializar el sistema o para corregir el consecutivo tras importar un histórico.
+            Define quién empieza la rotación o reinícala desde la primera persona activa.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="consecutivoInicial">Consecutivo inicial</Label>
-              <Input
-                id="consecutivoInicial"
-                type="number"
-                value={consecutivoInicial}
-                onChange={(e) => setConsecutivoInicial(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Turno inicial (quién empieza)</Label>
-              <Select value={turnoInicialId} onValueChange={(value) => setTurnoInicialId(value ?? '')}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona una persona" />
-                </SelectTrigger>
-                <SelectContent>
-                  {personasActivasOrdenadas.map((p) => (
-                    <SelectItem key={p.id} value={String(p.id)}>
-                      {p.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex flex-col gap-1.5 sm:max-w-xs">
+            <Label>Turno inicial (quién empieza)</Label>
+            <Select value={turnoInicialId} onValueChange={(value) => setTurnoInicialId(value ?? '')}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecciona una persona" />
+              </SelectTrigger>
+              <SelectContent>
+                {personasActivasOrdenadas.map((p) => (
+                  <SelectItem key={p.id} value={String(p.id)}>
+                    {p.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            ⚠️ Cambiar estos valores afecta directamente a quién se le asignará el próximo radicado.
-            Verifica antes de guardar.
+            ⚠️ Cambiar el turno afecta directamente a quién se le asignará el próximo radicado.
           </div>
 
           <div className="flex gap-2">
-            <Button onClick={guardarConfiguracionConsecutivos} disabled={guardandoConfig}>
-              Guardar cambios
+            <Button onClick={guardarTurnoInicial} disabled={guardandoConfig}>
+              Guardar turno inicial
             </Button>
             <Button variant="outline" onClick={reiniciarTurno}>
               Reiniciar turno
             </Button>
           </div>
+        </CardContent>
+      </Card>
 
-          <Separator />
-          <p className="text-xs text-muted-foreground">
-            Consecutivo actual registrado: <strong>{configuracion?.consecutivoActual ?? 0}</strong>
-          </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Series de consecutivos</CardTitle>
+          <CardDescription>
+            Cada serie (CUEM, CUPE, UCI…) lleva su propia numeración y detección de gaps. Marca una serie
+            como &quot;no se reparte&quot; si sus radicados no deben asignarse a un trabajador (ej: UCI).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Serie</TableHead>
+                <TableHead>Se reparte</TableHead>
+                <TableHead>Consecutivo actual</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!cargando && series.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    Aún no hay series (se crean automáticamente al registrar o importar un radicado)
+                  </TableCell>
+                </TableRow>
+              )}
+              {series.map((serie) => (
+                <TableRow key={serie.id}>
+                  <TableCell className="font-medium">{serie.codigo}</TableCell>
+                  <TableCell>
+                    <Badge variant={serie.distribuible ? 'default' : 'secondary'}>
+                      {serie.distribuible ? 'Sí' : 'No'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      className="w-28"
+                      value={edicionesConsecutivo[serie.id] ?? ''}
+                      onChange={(e) =>
+                        setEdicionesConsecutivo((prev) => ({ ...prev, [serie.id]: e.target.value }))
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="flex justify-end gap-1">
+                    <Button variant="outline" size="sm" onClick={() => guardarConsecutivoSerie(serie)}>
+                      Guardar
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => toggleDistribuible(serie)}>
+                      {serie.distribuible ? 'No repartir' : 'Repartir'}
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

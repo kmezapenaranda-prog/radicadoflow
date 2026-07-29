@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -16,6 +16,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Table,
   TableBody,
   TableCell,
@@ -25,25 +32,36 @@ import {
 } from '@/components/ui/table'
 import { Loader2, Upload } from 'lucide-react'
 
+interface Serie {
+  id: number
+  codigo: string
+  distribuible: boolean
+}
+
 interface ResultadoRegistro {
-  radicado: { consecutivo: number; fechaCreacion: string }
-  personaAsignada: { nombre: string }
-  personaSiguiente: { nombre: string }
+  radicado: { numero: number; serie: { codigo: string }; fechaCreacion: string }
+  personaAsignada: { nombre: string } | null
+  personaSiguiente: { nombre: string } | null
   gapsDetectados: number[]
+  distribuible: boolean
 }
 
 interface FilaExcel {
   fila: number
-  consecutivo: number
+  serieCodigo: string
+  numero: number
   descripcion?: string
   creadoPor?: string
 }
 
 interface ResultadoImportacion {
   procesados: number
-  errores: { fila: number; consecutivo: number; error: string }[]
-  gaps: number[]
+  errores: { fila: number; consecutivo: string; error: string }[]
+  gaps: string[]
+  invalidas: number
 }
+
+const SERIE_NUEVA = '__nueva__'
 
 function formatearFecha(fechaIso: string) {
   const texto = format(new Date(fechaIso), "dd MMM yyyy - hh:mm a", { locale: es })
@@ -51,7 +69,10 @@ function formatearFecha(fechaIso: string) {
 }
 
 export default function RegistrarPage() {
-  const [consecutivo, setConsecutivo] = useState('')
+  const [series, setSeries] = useState<Serie[]>([])
+  const [serieCodigo, setSerieCodigo] = useState('')
+  const [serieNueva, setSerieNueva] = useState('')
+  const [numero, setNumero] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [creadoPor, setCreadoPor] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -65,10 +86,22 @@ export default function RegistrarPage() {
   const [importando, setImportando] = useState(false)
   const [resultadoImport, setResultadoImport] = useState<ResultadoImportacion | null>(null)
 
+  useEffect(() => {
+    fetch('/api/series')
+      .then((res) => res.json())
+      .then((data) => setSeries(data.series ?? []))
+      .catch(() => {})
+  }, [])
+
   async function registrar() {
-    const consecutivoNum = Number(consecutivo)
-    if (!consecutivo || !Number.isInteger(consecutivoNum) || consecutivoNum <= 0) {
-      toast.error('Ingresa un consecutivo válido')
+    const codigo = serieCodigo === SERIE_NUEVA ? serieNueva.trim() : serieCodigo
+    const numeroNum = Number(numero)
+    if (!codigo) {
+      toast.error('Selecciona o escribe una serie (ej: CUEM)')
+      return
+    }
+    if (!numero || !Number.isInteger(numeroNum) || numeroNum <= 0) {
+      toast.error('Ingresa un número de consecutivo válido')
       return
     }
 
@@ -79,7 +112,8 @@ export default function RegistrarPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          consecutivo: consecutivoNum,
+          serieCodigo: codigo,
+          numero: numeroNum,
           descripcion: descripcion || undefined,
           creadoPor: creadoPor || undefined,
         }),
@@ -90,9 +124,16 @@ export default function RegistrarPage() {
         return
       }
       setResultado(data)
-      toast.success(`Radicado #${data.radicado.consecutivo} registrado`)
-      setConsecutivo('')
+      toast.success(`Radicado ${data.radicado.serie.codigo}-${data.radicado.numero} registrado`)
+      setNumero('')
       setDescripcion('')
+      if (serieCodigo === SERIE_NUEVA) {
+        setSerieCodigo(serieNueva.trim().toUpperCase())
+        setSerieNueva('')
+        fetch('/api/series')
+          .then((r) => r.json())
+          .then((d) => setSeries(d.series ?? []))
+      }
     } catch {
       toast.error('Error de red al registrar el radicado')
     } finally {
@@ -176,20 +217,54 @@ export default function RegistrarPage() {
           <Card>
             <CardHeader>
               <CardTitle>Nuevo radicado</CardTitle>
-              <CardDescription>El sistema asigna automáticamente a la siguiente persona en turno.</CardDescription>
+              <CardDescription>
+                El sistema asigna automáticamente a la siguiente persona en turno (salvo series marcadas como
+                &quot;no se reparte&quot;, como UCI).
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="consecutivo">Consecutivo *</Label>
-                <Input
-                  id="consecutivo"
-                  type="number"
-                  value={consecutivo}
-                  onChange={(e) => setConsecutivo(e.target.value)}
-                  placeholder="00045"
-                  onKeyDown={(e) => e.key === 'Enter' && registrar()}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Serie *</Label>
+                  <Select value={serieCodigo} onValueChange={(v) => v && setSerieCodigo(v)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="CUEM, CUPE, UCI…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {series.map((s) => (
+                        <SelectItem key={s.id} value={s.codigo}>
+                          {s.codigo}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={SERIE_NUEVA}>+ Nueva serie…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="numero">Número *</Label>
+                  <Input
+                    id="numero"
+                    type="number"
+                    value={numero}
+                    onChange={(e) => setNumero(e.target.value)}
+                    placeholder="2531"
+                    onKeyDown={(e) => e.key === 'Enter' && registrar()}
+                  />
+                </div>
               </div>
+
+              {serieCodigo === SERIE_NUEVA && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="serieNueva">Código de la nueva serie</Label>
+                  <Input
+                    id="serieNueva"
+                    value={serieNueva}
+                    onChange={(e) => setSerieNueva(e.target.value.toUpperCase())}
+                    placeholder="Ej: CUPE"
+                  />
+                </div>
+              )}
+
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="descripcion">Descripción</Label>
                 <Input
@@ -216,14 +291,22 @@ export default function RegistrarPage() {
 
               {resultado && (
                 <div className="flex flex-col gap-1 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
-                  <p>✅ Radicado #{resultado.radicado.consecutivo} registrado</p>
-                  <p>👤 Asignado a: {resultado.personaAsignada.nombre.toUpperCase()}</p>
-                  <p>📅 Fecha: {formatearFecha(resultado.radicado.fechaCreacion)}</p>
-                  <p>⚡ Siguiente turno: {resultado.personaSiguiente.nombre.toUpperCase()}</p>
+                  <p>
+                    ✅ Radicado {resultado.radicado.serie.codigo}-{resultado.radicado.numero} registrado
+                  </p>
+                  {resultado.distribuible ? (
+                    <>
+                      <p>👤 Asignado a: {resultado.personaAsignada?.nombre.toUpperCase()}</p>
+                      <p>📅 Fecha: {formatearFecha(resultado.radicado.fechaCreacion)}</p>
+                      <p>⚡ Siguiente turno: {resultado.personaSiguiente?.nombre.toUpperCase()}</p>
+                    </>
+                  ) : (
+                    <p>ℹ️ Esta serie no se reparte a los trabajadores, queda solo registrada.</p>
+                  )}
                   {resultado.gapsDetectados.length > 0 && (
                     <p className="mt-1 text-amber-700">
                       ⚠️ Se detectaron {resultado.gapsDetectados.length} consecutivos sin radicado (
-                      {resultado.gapsDetectados.join(', ')})
+                      {resultado.gapsDetectados.map((n) => `${resultado.radicado.serie.codigo}-${n}`).join(', ')})
                     </p>
                   )}
                 </div>
@@ -237,7 +320,8 @@ export default function RegistrarPage() {
             <CardHeader>
               <CardTitle>Importar histórico</CardTitle>
               <CardDescription>
-                El archivo debe tener columnas: consecutivo, descripcion, creadoPor
+                El archivo debe tener una columna &quot;consecutivo&quot; (ej: CUEM-2526). Opcionalmente Id,
+                Descripción y Fecha Radica.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -277,7 +361,9 @@ export default function RegistrarPage() {
                     <TableBody>
                       {previewFilas.map((fila) => (
                         <TableRow key={fila.fila}>
-                          <TableCell>{fila.consecutivo}</TableCell>
+                          <TableCell>
+                            {fila.serieCodigo}-{fila.numero}
+                          </TableCell>
                           <TableCell>{fila.descripcion || '—'}</TableCell>
                           <TableCell>{fila.creadoPor || '—'}</TableCell>
                         </TableRow>
@@ -294,6 +380,11 @@ export default function RegistrarPage() {
               {resultadoImport && (
                 <div className="flex flex-col gap-1 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
                   <p>✅ {resultadoImport.procesados} radicados procesados</p>
+                  {resultadoImport.invalidas > 0 && (
+                    <p className="text-amber-700">
+                      ⚠️ {resultadoImport.invalidas} filas con formato de consecutivo inválido (se ignoraron)
+                    </p>
+                  )}
                   {resultadoImport.gaps.length > 0 && (
                     <p className="text-amber-700">
                       ⚠️ {resultadoImport.gaps.length} gaps generados ({resultadoImport.gaps.join(', ')})

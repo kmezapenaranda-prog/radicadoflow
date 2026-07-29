@@ -8,7 +8,6 @@ async function main() {
     update: {},
     create: {
       id: 1,
-      consecutivoActual: 0,
       turnoActual: 0,
     },
   })

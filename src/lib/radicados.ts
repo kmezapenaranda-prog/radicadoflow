@@ -29,20 +29,34 @@ async function asignarSiguientePersona(tx: Tx) {
   return { personaAsignada, turnoSiguiente, personaSiguiente }
 }
 
+export async function getOrCreateSerie(tx: Tx, codigo: string, distribuible = true) {
+  const codigoNormalizado = codigo.trim().toUpperCase()
+  if (!codigoNormalizado) throw new RadicadoError('El código de la serie es obligatorio')
+
+  const existente = await tx.serie.findUnique({ where: { codigo: codigoNormalizado } })
+  if (existente) return existente
+
+  return tx.serie.create({ data: { codigo: codigoNormalizado, distribuible } })
+}
+
 async function detectarYMarcarGaps(
   tx: Tx,
-  nuevoConsecutivo: number,
-  consecutivoActual: number,
+  serieId: number,
+  nuevoNumero: number,
+  numeroActual: number,
   mes: number,
   anio: number
 ) {
   const gapsCreados: number[] = []
-  for (let i = consecutivoActual + 1; i < nuevoConsecutivo; i++) {
-    const existente = await tx.radicado.findUnique({ where: { consecutivo: i } })
+  for (let i = numeroActual + 1; i < nuevoNumero; i++) {
+    const existente = await tx.radicado.findUnique({
+      where: { serieId_numero: { serieId, numero: i } },
+    })
     if (existente) continue
     await tx.radicado.create({
       data: {
-        consecutivo: i,
+        serieId,
+        numero: i,
         esGap: true,
         personaId: null,
         mes,
@@ -55,45 +69,59 @@ async function detectarYMarcarGaps(
 }
 
 export interface RegistrarRadicadoInput {
-  consecutivo: number
+  serieCodigo: string
+  numero: number
   descripcion?: string | null
   creadoPor?: string | null
+  idExterno?: number | null
+  fecha?: Date
 }
 
 export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
-  const { consecutivo, descripcion, creadoPor } = input
+  const { numero, descripcion, creadoPor, idExterno } = input
 
-  if (!Number.isInteger(consecutivo) || consecutivo <= 0) {
-    throw new RadicadoError('El consecutivo debe ser un entero positivo')
+  if (!Number.isInteger(numero) || numero <= 0) {
+    throw new RadicadoError('El número de consecutivo debe ser un entero positivo')
   }
 
-  const config = await tx.configuracion.findUnique({ where: { id: 1 } })
-  if (!config) throw new RadicadoError('La configuración inicial no existe')
+  const serie = await getOrCreateSerie(tx, input.serieCodigo)
 
-  const now = new Date()
+  const now = input.fecha ?? new Date()
   const mes = now.getMonth() + 1
   const anio = now.getFullYear()
 
-  const existente = await tx.radicado.findUnique({ where: { consecutivo } })
+  const existente = await tx.radicado.findUnique({
+    where: { serieId_numero: { serieId: serie.id, numero } },
+  })
 
   let gapsDetectados: number[] = []
   if (existente && !existente.esGap) {
-    throw new RadicadoError(`El consecutivo ${consecutivo} ya fue registrado`)
+    throw new RadicadoError(`El consecutivo ${serie.codigo}-${numero} ya fue registrado`)
   }
 
-  if (!existente && consecutivo > config.consecutivoActual + 1) {
-    gapsDetectados = await detectarYMarcarGaps(tx, consecutivo, config.consecutivoActual, mes, anio)
+  if (!existente && numero > serie.consecutivoActual + 1) {
+    gapsDetectados = await detectarYMarcarGaps(tx, serie.id, numero, serie.consecutivoActual, mes, anio)
   }
 
-  const { personaAsignada, turnoSiguiente, personaSiguiente } = await asignarSiguientePersona(tx)
+  let personaAsignada = null
+  let turnoSiguiente: number | null = null
+  let personaSiguiente = null
+
+  if (serie.distribuible) {
+    const asignacion = await asignarSiguientePersona(tx)
+    personaAsignada = asignacion.personaAsignada
+    turnoSiguiente = asignacion.turnoSiguiente
+    personaSiguiente = asignacion.personaSiguiente
+  }
 
   const radicado = existente
     ? await tx.radicado.update({
-        where: { consecutivo },
+        where: { serieId_numero: { serieId: serie.id, numero } },
         data: {
           descripcion: descripcion ?? null,
           creadoPor: creadoPor ?? null,
-          personaId: personaAsignada.id,
+          idExterno: idExterno ?? null,
+          personaId: personaAsignada?.id ?? null,
           esGap: false,
           fechaCreacion: now,
           mes,
@@ -102,10 +130,12 @@ export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
       })
     : await tx.radicado.create({
         data: {
-          consecutivo,
+          serieId: serie.id,
+          numero,
           descripcion: descripcion ?? null,
           creadoPor: creadoPor ?? null,
-          personaId: personaAsignada.id,
+          idExterno: idExterno ?? null,
+          personaId: personaAsignada?.id ?? null,
           esGap: false,
           fechaCreacion: now,
           mes,
@@ -113,19 +143,20 @@ export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
         },
       })
 
-  if (consecutivo > config.consecutivoActual) {
-    await tx.configuracion.update({
-      where: { id: 1 },
-      data: { consecutivoActual: consecutivo },
+  if (numero > serie.consecutivoActual) {
+    await tx.serie.update({
+      where: { id: serie.id },
+      data: { consecutivoActual: numero },
     })
   }
 
   return {
-    radicado,
+    radicado: { ...radicado, serie },
     personaAsignada,
     turnoSiguiente,
     personaSiguiente,
     gapsDetectados,
+    distribuible: serie.distribuible,
   }
 }
 

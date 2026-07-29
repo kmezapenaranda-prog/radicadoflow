@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const radicados = await prisma.radicado.findMany({
     where: { mes, anio },
     include: { persona: true },
-    orderBy: { consecutivo: 'asc' },
+    orderBy: [{ serieId: 'asc' }, { numero: 'asc' }],
   })
 
   const reales = radicados.filter((r) => !r.esGap)

@@ -23,7 +23,8 @@ import {
 
 interface Radicado {
   id: number
-  consecutivo: number
+  numero: number
+  serie: { codigo: string; distribuible: boolean }
   descripcion: string | null
   creadoPor: string | null
   esGap: boolean
@@ -189,7 +190,9 @@ export default function DashboardPage() {
                 )}
                 {ultimos.map((r) => (
                   <TableRow key={r.id} className={r.esGap ? 'bg-red-50 dark:bg-red-950/30' : ''}>
-                    <TableCell className="font-medium">{r.consecutivo}</TableCell>
+                    <TableCell className="font-medium">
+                      {r.serie.codigo}-{r.numero}
+                    </TableCell>
                     <TableCell>{r.persona?.nombre ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{r.creadoPor ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -198,6 +201,8 @@ export default function DashboardPage() {
                     <TableCell>
                       {r.esGap ? (
                         <Badge variant="destructive">⚠️ GAP</Badge>
+                      ) : !r.serie.distribuible ? (
+                        <Badge variant="outline">No aplica</Badge>
                       ) : (
                         <Badge variant="secondary">OK</Badge>
                       )}

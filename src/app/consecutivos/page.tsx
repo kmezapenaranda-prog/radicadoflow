@@ -33,10 +33,16 @@ import { Download } from 'lucide-react'
 
 interface Radicado {
   id: number
-  consecutivo: number
+  numero: number
+  serie: { codigo: string; distribuible: boolean }
   esGap: boolean
   fechaCreacion: string
   persona: { nombre: string } | null
+}
+
+interface Serie {
+  id: number
+  codigo: string
 }
 
 const MESES = [
@@ -50,28 +56,37 @@ export default function ConsecutivosPage() {
   const hoy = new Date()
   const [mes, setMes] = useState(hoy.getMonth() + 1)
   const [anio, setAnio] = useState(hoy.getFullYear())
+  const [serieId, setSerieId] = useState<string>('todas')
+  const [series, setSeries] = useState<Serie[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const [radicados, setRadicados] = useState<Radicado[]>([])
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
+    fetch('/api/series')
+      .then((res) => res.json())
+      .then((data) => setSeries(data.series ?? []))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     async function cargar() {
       setCargando(true)
-      const res = await fetch(
-        `/api/radicados?mes=${mes}&anio=${anio}&orden=consecutivo&dir=asc&limit=2000`
-      )
+      const filtroSerie = serieId !== 'todas' ? `&serieId=${serieId}` : ''
+      const res = await fetch(`/api/radicados?mes=${mes}&anio=${anio}&dir=asc&limit=2000${filtroSerie}`)
       const data = await res.json()
       setRadicados(data.radicados ?? [])
       setPagina(1)
       setCargando(false)
     }
     cargar()
-  }, [mes, anio])
+  }, [mes, anio, serieId])
 
   const filtrados = useMemo(() => {
     if (!busqueda.trim()) return radicados
-    return radicados.filter((r) => String(r.consecutivo).includes(busqueda.trim()))
+    const q = busqueda.trim().toLowerCase()
+    return radicados.filter((r) => `${r.serie.codigo}-${r.numero}`.toLowerCase().includes(q))
   }, [radicados, busqueda])
 
   const totalPaginas = Math.max(1, Math.ceil(filtrados.length / POR_PAGINA))
@@ -160,6 +175,19 @@ export default function ConsecutivosPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={serieId} onValueChange={(v) => v && setSerieId(v)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas las series</SelectItem>
+              {series.map((s) => (
+                <SelectItem key={s.id} value={String(s.id)}>
+                  {s.codigo}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             value={busqueda}
             onChange={(e) => {
@@ -200,10 +228,14 @@ export default function ConsecutivosPage() {
               )}
               {filtradosPagina.map((r) => (
                 <TableRow key={r.id} className={r.esGap ? 'bg-red-50 dark:bg-red-950/30' : ''}>
-                  <TableCell className="font-medium">#{String(r.consecutivo).padStart(4, '0')}</TableCell>
+                  <TableCell className="font-medium">
+                    {r.serie.codigo}-{r.numero}
+                  </TableCell>
                   <TableCell>
                     {r.esGap ? (
                       <Badge variant="destructive">⚠️ GAP</Badge>
+                    ) : !r.serie.distribuible ? (
+                      <Badge variant="outline">No aplica</Badge>
                     ) : (
                       <Badge variant="secondary">✅ OK</Badge>
                     )}
