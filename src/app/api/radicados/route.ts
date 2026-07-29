@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { RadicadoError, registrarRadicado } from '@/lib/radicados'
 
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: NextRequest) {
   const body = await request.json()
   const { serieCodigo, numero, descripcion, creadoPor } = body as {

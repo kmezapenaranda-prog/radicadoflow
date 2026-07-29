@@ -6,11 +6,11 @@ generator client {
 }
 
 datasource db {
-  // Desarrollo: SQLite (ver .env -> DATABASE_URL="file:./dev.db")
-  provider = "sqlite"
-  // Producción (Vercel Postgres / Neon): cambiar a `provider = "postgresql"`
-  // y configurar DATABASE_URL con la cadena de conexión (ver .env.example)
-  url = env("DATABASE_URL")
+  // Producción (Vercel Postgres / Neon). DATABASE_URL debe ser una cadena
+  // de conexión postgresql:// (ver .env.example). Para desarrollo local,
+  // usa la misma base Postgres (más simple que mantener dos motores).
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Configuracion {

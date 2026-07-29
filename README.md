@@ -10,15 +10,18 @@ detecta consecutivos sin radicado (GAPs).
 
 - Next.js 14 (App Router) + TypeScript
 - Tailwind CSS + shadcn/ui
-- Prisma ORM + SQLite (dev) / PostgreSQL (prod)
+- Prisma ORM + PostgreSQL (misma base en dev y en prod)
 - exceljs para importar/exportar Excel
 - date-fns para fechas
 
 ## Desarrollo local
 
+Necesitas una base PostgreSQL (Vercel Postgres o [Neon](https://neon.tech),
+ambos tienen plan gratuito). Copia su cadena de conexión a `.env`.
+
 ```bash
 npm install
-cp .env.example .env
+cp .env.example .env   # y pega tu DATABASE_URL real
 npx prisma db push
 npx prisma db seed
 npm run dev
@@ -44,9 +47,9 @@ Abre [http://localhost:3000](http://localhost:3000). Empieza por
 1. Push este repo a GitHub.
 2. Ir a [vercel.com](https://vercel.com) → New Project → importar el repo.
 3. Configurar la variable de entorno `DATABASE_URL` con una base
-   Postgres (Vercel Postgres o [Neon](https://neon.tech)).
-4. En `prisma/schema.prisma`, cambiar `provider = "sqlite"` por
-   `provider = "postgresql"` en el bloque `datasource db` antes de
-   desplegar a producción.
-5. Deploy automático activado en cada push a `main` (ver
+   Postgres (Vercel Postgres/Storage o [Neon](https://neon.tech)).
+4. Antes o después del primer deploy, correr `npx prisma db push`
+   apuntando a esa base (con `DATABASE_URL` en el entorno) para crear
+   las tablas — el build de Vercel no lo hace automáticamente.
+5. Deploy automático activado en cada push a `master` (ver
    `.github/workflows/ci.yml` para la validación previa).
