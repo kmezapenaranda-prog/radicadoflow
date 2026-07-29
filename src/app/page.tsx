@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Table,
   TableBody,
@@ -114,30 +115,38 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="flex flex-col gap-1 pt-4">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Hoy</span>
-            <span className="text-3xl font-semibold">{cargando ? '—' : hoyTotal}</span>
+            {cargando ? <Skeleton className="h-9 w-12" /> : <span className="text-3xl font-semibold">{hoyTotal}</span>}
             <span className="text-xs text-muted-foreground">radicados</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex flex-col gap-1 pt-4">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Mes</span>
-            <span className="text-3xl font-semibold">{cargando ? '—' : mesTotal}</span>
+            {cargando ? <Skeleton className="h-9 w-12" /> : <span className="text-3xl font-semibold">{mesTotal}</span>}
             <span className="text-xs text-muted-foreground">radicados</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex flex-col gap-1 pt-4">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Gaps</span>
-            <span className="text-3xl font-semibold text-red-600">{cargando ? '—' : gapsMes}</span>
+            {cargando ? (
+              <Skeleton className="h-9 w-12" />
+            ) : (
+              <span className="text-3xl font-semibold text-red-600">{gapsMes}</span>
+            )}
             <span className="text-xs text-muted-foreground">este mes</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex flex-col gap-1 pt-4">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Turno</span>
-            <span className="truncate text-xl font-semibold text-indigo-600">
-              {cargando ? '—' : personaEnTurno ?? 'Sin asignar'}
-            </span>
+            {cargando ? (
+              <Skeleton className="h-7 w-24" />
+            ) : (
+              <span className="truncate text-xl font-semibold text-indigo-600">
+                {personaEnTurno ?? 'Sin asignar'}
+              </span>
+            )}
             <span className="text-xs text-muted-foreground">le toca</span>
           </CardContent>
         </Card>
@@ -161,6 +170,16 @@ export default function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+                {cargando &&
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      {Array.from({ length: 5 }).map((__, j) => (
+                        <TableCell key={j}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
                 {!cargando && ultimos.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">

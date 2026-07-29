@@ -25,6 +25,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { buttonVariants } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { Download } from 'lucide-react'
 
@@ -188,6 +189,16 @@ export default function InformesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {cargando &&
+                Array.from({ length: 3 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {Array.from({ length: 4 }).map((__, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-4 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
               {!cargando && (informe?.porPersona.length ?? 0) === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground">
@@ -224,6 +235,15 @@ export default function InformesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {cargando && (
+                <TableRow>
+                  {Array.from({ length: 2 + personasActivas.length }).map((_, j) => (
+                    <TableCell key={j}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              )}
               {!cargando && porDia.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={2 + personasActivas.length} className="text-center text-muted-foreground">
