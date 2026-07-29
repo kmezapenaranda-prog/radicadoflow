@@ -34,6 +34,7 @@ import { Download } from 'lucide-react'
 interface Radicado {
   id: number
   numero: number
+  idExterno: number | null
   serie: { codigo: string; distribuible: boolean }
   esGap: boolean
   fechaCreacion: string
@@ -43,6 +44,11 @@ interface Radicado {
 interface Serie {
   id: number
   codigo: string
+}
+
+interface Persona {
+  id: number
+  nombre: string
 }
 
 const MESES = [
@@ -58,6 +64,8 @@ export default function ConsecutivosPage() {
   const [anio, setAnio] = useState(hoy.getFullYear())
   const [serieId, setSerieId] = useState<string>('todas')
   const [series, setSeries] = useState<Serie[]>([])
+  const [personaId, setPersonaId] = useState<string>('todas')
+  const [personas, setPersonas] = useState<Persona[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const [radicados, setRadicados] = useState<Radicado[]>([])
@@ -68,20 +76,27 @@ export default function ConsecutivosPage() {
       .then((res) => res.json())
       .then((data) => setSeries(data.series ?? []))
       .catch(() => {})
+    fetch('/api/personas')
+      .then((res) => res.json())
+      .then((data) => setPersonas(data.personas ?? []))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
     async function cargar() {
       setCargando(true)
       const filtroSerie = serieId !== 'todas' ? `&serieId=${serieId}` : ''
-      const res = await fetch(`/api/radicados?mes=${mes}&anio=${anio}&dir=asc&limit=2000${filtroSerie}`)
+      const filtroPersona = personaId !== 'todas' ? `&personaId=${personaId}` : ''
+      const res = await fetch(
+        `/api/radicados?mes=${mes}&anio=${anio}&dir=asc&limit=2000${filtroSerie}${filtroPersona}`
+      )
       const data = await res.json()
       setRadicados(data.radicados ?? [])
       setPagina(1)
       setCargando(false)
     }
     cargar()
-  }, [mes, anio, serieId])
+  }, [mes, anio, serieId, personaId])
 
   const filtrados = useMemo(() => {
     if (!busqueda.trim()) return radicados
@@ -188,6 +203,19 @@ export default function ConsecutivosPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={personaId} onValueChange={(v) => v && setPersonaId(v)}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas las personas</SelectItem>
+              {personas.map((p) => (
+                <SelectItem key={p.id} value={String(p.id)}>
+                  {p.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             value={busqueda}
             onChange={(e) => {
@@ -203,6 +231,7 @@ export default function ConsecutivosPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Consecutivo</TableHead>
+                <TableHead>Id</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Persona</TableHead>
                 <TableHead>Fecha</TableHead>
@@ -212,7 +241,7 @@ export default function ConsecutivosPage() {
               {cargando &&
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 4 }).map((__, j) => (
+                    {Array.from({ length: 5 }).map((__, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -221,7 +250,7 @@ export default function ConsecutivosPage() {
                 ))}
               {!cargando && filtradosPagina.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
                     No hay consecutivos para este filtro
                   </TableCell>
                 </TableRow>
@@ -231,6 +260,7 @@ export default function ConsecutivosPage() {
                   <TableCell className="font-medium">
                     {r.serie.codigo}-{r.numero}
                   </TableCell>
+                  <TableCell className="text-muted-foreground">{r.idExterno ?? '—'}</TableCell>
                   <TableCell>
                     {r.esGap ? (
                       <Badge variant="destructive">⚠️ GAP</Badge>
