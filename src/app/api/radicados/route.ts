@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   const limit = searchParams.get('limit')
   const desde = searchParams.get('desde')
   const orden = searchParams.get('orden')
+  const dir = searchParams.get('dir') === 'asc' ? 'asc' : 'desc'
 
   const where: Record<string, unknown> = {}
   if (mes) where.mes = Number(mes)
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
   const radicados = await prisma.radicado.findMany({
     where,
     include: { persona: true },
-    orderBy: orden === 'fecha' ? { fechaCreacion: 'desc' } : { consecutivo: 'desc' },
+    orderBy: orden === 'fecha' ? { fechaCreacion: dir } : { consecutivo: dir },
     take: limit ? Number(limit) : undefined,
   })
 
