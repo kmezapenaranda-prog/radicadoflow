@@ -16,21 +16,13 @@ function normalizarEncabezado(valor: unknown) {
     .toLowerCase()
 }
 
-export async function POST(request: NextRequest) {
-  const formData = await request.formData()
-  const file = formData.get('file')
-
-  if (!file || typeof file === 'string') {
-    return NextResponse.json({ error: 'Debe adjuntar un archivo .xlsx' }, { status: 400 })
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer())
+async function parseExcel(buffer: Buffer): Promise<FilaExcel[]> {
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(buffer as any)
 
   const worksheet = workbook.worksheets[0]
   if (!worksheet) {
-    return NextResponse.json({ error: 'El archivo no contiene hojas' }, { status: 400 })
+    throw new RadicadoError('El archivo no contiene hojas')
   }
 
   const headerRow = worksheet.getRow(1)
@@ -44,10 +36,7 @@ export async function POST(request: NextRequest) {
   const colCreadoPor = columnas['creadopor']
 
   if (!colConsecutivo) {
-    return NextResponse.json(
-      { error: 'El archivo debe tener una columna "consecutivo"' },
-      { status: 400 }
-    )
+    throw new RadicadoError('El archivo debe tener una columna "consecutivo"')
   }
 
   const filas: FilaExcel[] = []
@@ -65,13 +54,41 @@ export async function POST(request: NextRequest) {
     })
   })
 
-  filas.sort((a, b) => a.consecutivo - b.consecutivo)
+  return filas
+}
+
+export async function POST(request: NextRequest) {
+  const { searchParams } = new URL(request.url)
+  const soloPreview = searchParams.get('preview') === '1'
+
+  const formData = await request.formData()
+  const file = formData.get('file')
+
+  if (!file || typeof file === 'string') {
+    return NextResponse.json({ error: 'Debe adjuntar un archivo .xlsx' }, { status: 400 })
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+
+  let filas: FilaExcel[]
+  try {
+    filas = await parseExcel(buffer)
+  } catch (error) {
+    const message = error instanceof RadicadoError ? error.message : 'No se pudo leer el archivo'
+    return NextResponse.json({ error: message }, { status: 400 })
+  }
+
+  if (soloPreview) {
+    return NextResponse.json({ filas: filas.slice(0, 5), total: filas.length })
+  }
+
+  const filasOrdenadas = [...filas].sort((a, b) => a.consecutivo - b.consecutivo)
 
   const procesados: FilaExcel[] = []
   const errores: { fila: number; consecutivo: number; error: string }[] = []
   const gaps: number[] = []
 
-  for (const fila of filas) {
+  for (const fila of filasOrdenadas) {
     try {
       const resultado = await prisma.$transaction((tx) =>
         registrarRadicado(tx, {
