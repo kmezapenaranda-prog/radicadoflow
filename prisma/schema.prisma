@@ -1,0 +1,41 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Configuracion {
+  id                Int      @id @default(1)
+  consecutivoActual Int      @default(0)
+  turnoActual       Int      @default(0)
+  updatedAt         DateTime @updatedAt
+}
+
+model Persona {
+  id        Int        @id @default(autoincrement())
+  nombre    String
+  email     String?
+  orden     Int
+  activo    Boolean    @default(true)
+  radicados Radicado[]
+  createdAt DateTime   @default(now())
+}
+
+model Radicado {
+  id            Int      @id @default(autoincrement())
+  consecutivo   Int      @unique
+  descripcion   String?
+  personaId     Int?
+  persona       Persona? @relation(fields: [personaId], references: [id])
+  esGap         Boolean  @default(false)
+  creadoPor     String?
+  fechaCreacion DateTime @default(now())
+  mes           Int
+  anio          Int
+}
