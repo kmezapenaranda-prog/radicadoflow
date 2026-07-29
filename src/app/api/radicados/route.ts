@@ -34,16 +34,19 @@ export async function GET(request: NextRequest) {
   const anio = searchParams.get('anio')
   const personaId = searchParams.get('personaId')
   const limit = searchParams.get('limit')
+  const desde = searchParams.get('desde')
+  const orden = searchParams.get('orden')
 
   const where: Record<string, unknown> = {}
   if (mes) where.mes = Number(mes)
   if (anio) where.anio = Number(anio)
   if (personaId) where.personaId = Number(personaId)
+  if (desde) where.fechaCreacion = { gte: new Date(desde) }
 
   const radicados = await prisma.radicado.findMany({
     where,
     include: { persona: true },
-    orderBy: { consecutivo: 'desc' },
+    orderBy: orden === 'fecha' ? { fechaCreacion: 'desc' } : { consecutivo: 'desc' },
     take: limit ? Number(limit) : undefined,
   })
 

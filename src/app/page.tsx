@@ -1,101 +1,246 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
+import { useEffect, useState } from 'react'
+import { format } from 'date-fns'
+import { es } from 'date-fns/locale'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+
+interface Radicado {
+  id: number
+  consecutivo: number
+  descripcion: string | null
+  creadoPor: string | null
+  esGap: boolean
+  fechaCreacion: string
+  persona: { nombre: string } | null
+}
+
+interface PersonaRanking {
+  nombre: string
+  total: number
+  porcentaje: number
+}
+
+function fechaLocal(iso: string) {
+  return format(new Date(iso), 'yyyy-MM-dd')
+}
+
+export default function DashboardPage() {
+  const [cargando, setCargando] = useState(true)
+  const [hoyTotal, setHoyTotal] = useState(0)
+  const [mesTotal, setMesTotal] = useState(0)
+  const [gapsMes, setGapsMes] = useState(0)
+  const [personaEnTurno, setPersonaEnTurno] = useState<string | null>(null)
+  const [ultimos, setUltimos] = useState<Radicado[]>([])
+  const [porDia, setPorDia] = useState<{ fecha: string; total: number }[]>([])
+  const [topPersonas, setTopPersonas] = useState<PersonaRanking[]>([])
+
+  useEffect(() => {
+    async function cargar() {
+      const hoy = new Date()
+      const mes = hoy.getMonth() + 1
+      const anio = hoy.getFullYear()
+      const haceSieteDias = new Date(hoy)
+      haceSieteDias.setDate(haceSieteDias.getDate() - 6)
+      haceSieteDias.setHours(0, 0, 0, 0)
+
+      const [resConfig, resInforme, resUltimos, resSemana] = await Promise.all([
+        fetch('/api/configuracion'),
+        fetch(`/api/informes/mensual?mes=${mes}&anio=${anio}`),
+        fetch('/api/radicados?orden=fecha&limit=20'),
+        fetch(`/api/radicados?desde=${haceSieteDias.toISOString()}&orden=fecha&limit=500`),
+      ])
+
+      const dataConfig = await resConfig.json()
+      const dataInforme = await resInforme.json()
+      const dataUltimos = await resUltimos.json()
+      const dataSemana = await resSemana.json()
+
+      setPersonaEnTurno(dataConfig.personaEnTurno?.nombre ?? null)
+      setMesTotal(dataInforme.totalRadicados ?? 0)
+      setGapsMes(dataInforme.totalGaps ?? 0)
+      setTopPersonas((dataInforme.porPersona ?? []).slice(0, 5))
+      setUltimos(dataUltimos.radicados ?? [])
+
+      const hoyStr = fechaLocal(hoy.toISOString())
+      const radicadosSemana: Radicado[] = dataSemana.radicados ?? []
+      setHoyTotal(
+        radicadosSemana.filter((r) => !r.esGap && fechaLocal(r.fechaCreacion) === hoyStr).length
+      )
+
+      const buckets = new Map<string, number>()
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(haceSieteDias)
+        d.setDate(d.getDate() + i)
+        buckets.set(fechaLocal(d.toISOString()), 0)
+      }
+      for (const r of radicadosSemana) {
+        if (r.esGap) continue
+        const key = fechaLocal(r.fechaCreacion)
+        if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1)
+      }
+      setPorDia(Array.from(buckets.entries()).map(([fecha, total]) => ({ fecha, total })))
+
+      setCargando(false)
+    }
+    cargar()
+  }, [])
+
+  const maxDia = Math.max(1, ...porDia.map((d) => d.total))
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Resumen de radicados y turnos en tiempo real.</p>
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card>
+          <CardContent className="flex flex-col gap-1 pt-4">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Hoy</span>
+            <span className="text-3xl font-semibold">{cargando ? '—' : hoyTotal}</span>
+            <span className="text-xs text-muted-foreground">radicados</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col gap-1 pt-4">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Mes</span>
+            <span className="text-3xl font-semibold">{cargando ? '—' : mesTotal}</span>
+            <span className="text-xs text-muted-foreground">radicados</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col gap-1 pt-4">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Gaps</span>
+            <span className="text-3xl font-semibold text-red-600">{cargando ? '—' : gapsMes}</span>
+            <span className="text-xs text-muted-foreground">este mes</span>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex flex-col gap-1 pt-4">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Turno</span>
+            <span className="truncate text-xl font-semibold text-indigo-600">
+              {cargando ? '—' : personaEnTurno ?? 'Sin asignar'}
+            </span>
+            <span className="text-xs text-muted-foreground">le toca</span>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle>Últimos radicados</CardTitle>
+            <CardDescription>Los 20 registros más recientes</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Consecutivo</TableHead>
+                  <TableHead>Persona</TableHead>
+                  <TableHead>Registrado por</TableHead>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Estado</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {!cargando && ultimos.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Aún no hay radicados registrados
+                    </TableCell>
+                  </TableRow>
+                )}
+                {ultimos.map((r) => (
+                  <TableRow key={r.id} className={r.esGap ? 'bg-red-50 dark:bg-red-950/30' : ''}>
+                    <TableCell className="font-medium">{r.consecutivo}</TableCell>
+                    <TableCell>{r.persona?.nombre ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{r.creadoPor ?? '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {format(new Date(r.fechaCreacion), 'dd MMM, HH:mm', { locale: es })}
+                    </TableCell>
+                    <TableCell>
+                      {r.esGap ? (
+                        <Badge variant="destructive">⚠️ GAP</Badge>
+                      ) : (
+                        <Badge variant="secondary">OK</Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Últimos 7 días</CardTitle>
+              <CardDescription>Radicados asignados por día</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex h-32 items-end gap-2">
+                {porDia.map((d) => (
+                  <div key={d.fecha} className="group relative flex flex-1 flex-col items-center gap-1">
+                    <div className="pointer-events-none absolute -top-7 hidden rounded-md bg-foreground px-1.5 py-0.5 text-xs text-background group-hover:block">
+                      {d.total}
+                    </div>
+                    <div
+                      className="w-full min-h-[4px] rounded-t bg-indigo-600 transition-all dark:bg-indigo-400"
+                      style={{ height: `${(d.total / maxDia) * 100}%` }}
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      {format(new Date(d.fecha), 'EEE', { locale: es })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Top personas del mes</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {topPersonas.length === 0 && (
+                <p className="text-sm text-muted-foreground">Sin datos este mes</p>
+              )}
+              {topPersonas.map((p, i) => (
+                <div key={p.nombre} className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-2">
+                    <span className="flex size-5 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                      {i + 1}
+                    </span>
+                    {p.nombre}
+                  </span>
+                  <span className="text-muted-foreground">
+                    {p.total} · {p.porcentaje}%
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
-  );
+  )
 }
