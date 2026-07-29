@@ -1,36 +1,52 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RadicadoFlow
 
-## Getting Started
+Sistema de asignación automática de radicados para equipos de
+auditoría/facturación de salud. Cuando el responsable registra un
+radicado (glosa, factura o devolución), el sistema lo asigna
+automáticamente al siguiente auditor en turno (rotación circular) y
+detecta consecutivos sin radicado (GAPs).
 
-First, run the development server:
+## Stack
+
+- Next.js 14 (App Router) + TypeScript
+- Tailwind CSS + shadcn/ui
+- Prisma ORM + SQLite (dev) / PostgreSQL (prod)
+- exceljs para importar/exportar Excel
+- date-fns para fechas
+
+## Desarrollo local
 
 ```bash
+npm install
+cp .env.example .env
+npx prisma db push
+npx prisma db seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000). Empieza por
+`/configuracion` para dar de alta al equipo y su orden de rotación.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Estructura
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+/app
+  /page.tsx                    Dashboard principal
+  /configuracion/page.tsx      Setup de personas y turnos
+  /registrar/page.tsx          Registro manual + importación Excel
+  /consecutivos/page.tsx       Línea de tiempo de consecutivos y gaps
+  /informes/page.tsx           Informe mensual + exportación Excel
+  /api/...                     Rutas de la API (ver CLAUDE.md)
+```
 
-## Learn More
+## Deploy a Vercel
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push este repo a GitHub.
+2. Ir a [vercel.com](https://vercel.com) → New Project → importar el repo.
+3. Configurar la variable de entorno `DATABASE_URL` con una base
+   Postgres (Vercel Postgres o [Neon](https://neon.tech)).
+4. En `prisma/schema.prisma`, cambiar `provider = "sqlite"` por
+   `provider = "postgresql"` en el bloque `datasource db` antes de
+   desplegar a producción.
+5. Deploy automático activado en cada push a `main` (ver
+   `.github/workflows/ci.yml` para la validación previa).
