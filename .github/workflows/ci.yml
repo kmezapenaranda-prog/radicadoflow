@@ -7,6 +7,7 @@ jobs:
       # No se conecta de verdad: prisma generate y next build no requieren
       # una base alcanzable (todas las rutas de API son force-dynamic).
       DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+      DATABASE_URL_UNPOOLED: "postgresql://ci:ci@localhost:5432/ci"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3

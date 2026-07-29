@@ -9,8 +9,11 @@ datasource db {
   // Producción (Vercel Postgres / Neon). DATABASE_URL debe ser una cadena
   // de conexión postgresql:// (ver .env.example). Para desarrollo local,
   // usa la misma base Postgres (más simple que mantener dos motores).
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Conexión directa (sin pgbouncer) para `prisma db push`/migraciones.
+  // Vercel Postgres la expone como DATABASE_URL_UNPOOLED.
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 model Configuracion {
