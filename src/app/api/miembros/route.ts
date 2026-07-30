@@ -33,6 +33,7 @@ export async function GET() {
       invitaciones: invitaciones.data.map((i) => ({
         id: i.id,
         email: i.emailAddress,
+        url: i.url,
       })),
     })
   } catch (error) {

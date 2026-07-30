@@ -58,6 +58,7 @@ interface Miembro {
 interface Invitacion {
   id: string
   email: string
+  url: string | null
 }
 
 interface Persona {
@@ -148,6 +149,19 @@ export default function ConfiguracionPage() {
       toast.error(e instanceof Error ? e.message : 'No se pudo enviar la invitación')
     } finally {
       setInvitando(false)
+    }
+  }
+
+  async function copiarEnlaceInvitacion(invitacion: Invitacion) {
+    if (!invitacion.url) {
+      toast.error('Este enlace ya no está disponible')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(invitacion.url)
+      toast.success('Enlace copiado, ya lo puedes enviar por WhatsApp o donde prefieras')
+    } catch {
+      toast.error('No se pudo copiar el enlace')
     }
   }
 
@@ -622,7 +636,10 @@ export default function ConfiguracionPage() {
                   {invitaciones.map((inv) => (
                     <TableRow key={inv.id}>
                       <TableCell>{inv.email}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right space-x-1">
+                        <Button variant="outline" size="sm" onClick={() => copiarEnlaceInvitacion(inv)}>
+                          Copiar enlace
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => revocarInvitacion(inv)}>
                           Revocar
                         </Button>
