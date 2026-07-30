@@ -286,6 +286,19 @@ export default function ConfiguracionPage() {
     }
   }
 
+  async function eliminarPersona(persona: Persona) {
+    if (!confirm(`¿Eliminar a ${persona.nombre} definitivamente? Esto no se puede deshacer.`)) return
+    try {
+      const res = await fetch(`/api/personas/${persona.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Persona eliminada')
+      await cargarDatos()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo eliminar la persona')
+    }
+  }
+
   async function moverOrden(persona: Persona, direccion: 'arriba' | 'abajo') {
     const ordenadas = [...personas].sort((a, b) => a.orden - b.orden)
     const index = ordenadas.findIndex((p) => p.id === persona.id)
@@ -559,6 +572,13 @@ export default function ConfiguracionPage() {
                         onClick={() => toggleActivo(persona)}
                       >
                         {persona.activo ? 'Desactivar' : 'Activar'}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => eliminarPersona(persona)}
+                      >
+                        <X className="size-4" />
                       </Button>
                     </TableCell>
                   </TableRow>

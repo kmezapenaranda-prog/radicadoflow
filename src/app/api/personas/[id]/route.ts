@@ -52,15 +52,23 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
 
   try {
     const { empresaId } = await requireRole(['admin'])
-    const { count } = await prisma.persona.updateMany({
-      where: { id, empresaId },
-      data: { activo: false },
-    })
-    if (count === 0) {
+    const persona = await prisma.persona.findUnique({ where: { id } })
+    if (!persona || persona.empresaId !== empresaId) {
       return NextResponse.json({ error: 'Persona no encontrada' }, { status: 404 })
     }
-    const persona = await prisma.persona.findUnique({ where: { id } })
-    return NextResponse.json({ persona })
+
+    const radicadosAsignados = await prisma.radicado.count({ where: { personaId: id } })
+    if (radicadosAsignados > 0) {
+      return NextResponse.json(
+        {
+          error: `No se puede eliminar: tiene ${radicadosAsignados} radicado(s) asignados. Desactívala en su lugar para conservar el historial.`,
+        },
+        { status: 400 }
+      )
+    }
+
+    await prisma.persona.delete({ where: { id } })
+    return NextResponse.json({ ok: true })
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
