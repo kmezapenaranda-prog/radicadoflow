@@ -91,6 +91,7 @@ export default function ConfiguracionPage() {
   const [cargando, setCargando] = useState(true)
 
   const [dialogAbierto, setDialogAbierto] = useState(false)
+  const [miembroSeleccionado, setMiembroSeleccionado] = useState('')
   const [nombreNuevo, setNombreNuevo] = useState('')
   const [emailNuevo, setEmailNuevo] = useState('')
   const [guardandoPersona, setGuardandoPersona] = useState(false)
@@ -257,6 +258,7 @@ export default function ConfiguracionPage() {
       toast.success('Persona agregada')
       setNombreNuevo('')
       setEmailNuevo('')
+      setMiembroSeleccionado('')
       setDialogAbierto(false)
       await cargarDatos()
     } catch {
@@ -434,6 +436,42 @@ export default function ConfiguracionPage() {
                 <DialogTitle>Agregar persona</DialogTitle>
               </DialogHeader>
               <div className="flex flex-col gap-3">
+                {miembros.filter((m) => m.perfil === 'registrador').length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Elegir de un miembro (opcional)</Label>
+                    <Select
+                      value={miembroSeleccionado}
+                      onValueChange={(v) => {
+                        if (!v) return
+                        setMiembroSeleccionado(v)
+                        const m = miembros.find((x) => x.id === v)
+                        if (m) {
+                          setNombreNuevo(m.nombre ?? '')
+                          setEmailNuevo(m.email ?? '')
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Solo miembros con rol Registrador">
+                          {(value: string) =>
+                            miembros.find((m) => m.id === value)?.nombre ||
+                            miembros.find((m) => m.id === value)?.email ||
+                            'Solo miembros con rol Registrador'
+                          }
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {miembros
+                          .filter((m) => m.perfil === 'registrador')
+                          .map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.nombre || m.email}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="nombre">Nombre</Label>
                   <Input
