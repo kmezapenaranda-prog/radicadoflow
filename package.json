@@ -9,11 +9,9 @@
     "lint": "next lint",
     "postinstall": "prisma generate"
   },
-  "prisma": {
-    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
-  },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@clerk/nextjs": "^6.39.6",
     "@prisma/client": "5.22.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

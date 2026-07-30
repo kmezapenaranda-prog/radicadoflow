@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/prisma'
+import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  let empresaId: string
+  try {
+    empresaId = await requireEmpresaId()
+  } catch (error) {
+    if (error instanceof NoEmpresaError) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    throw error
+  }
+
   const { searchParams } = new URL(request.url)
   const mes = Number(searchParams.get('mes'))
   const anio = Number(searchParams.get('anio'))
@@ -14,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   const radicados = await prisma.radicado.findMany({
-    where: { mes, anio },
+    where: { empresaId, mes, anio },
     include: { persona: true, serie: true },
     orderBy: [{ serieId: 'asc' }, { numero: 'asc' }],
   })

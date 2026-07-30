@@ -49,3 +49,8 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Claude Code local tooling (skills cache), no es parte de la app
+/.claude
+/.agents
+skills-lock.json

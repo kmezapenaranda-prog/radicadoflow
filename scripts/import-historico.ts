@@ -11,7 +11,7 @@
  *     que quedó fuera del alcance de este archivo)
  *   - deja consecutivoActual = max(numero) de esa serie
  *
- * Uso: npx ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/import-historico.ts <archivo.xlsx> [UCI,OTRA=no-distribuible]
+ * Uso: npx ts-node --compiler-options {\"module\":\"CommonJS\"} scripts/import-historico.ts <archivo.xlsx> <empresaId (org_xxx de Clerk)> [UCI,OTRA=no-distribuible]
  */
 import ExcelJS from 'exceljs'
 import { PrismaClient } from '@prisma/client'
@@ -40,8 +40,12 @@ function parseFecha(valor: unknown): Date | undefined {
 
 async function main() {
   const archivo = process.argv[2] ?? 'Radicados_1.xlsx'
+  const empresaId = process.argv[3]
+  if (!empresaId || !empresaId.startsWith('org_')) {
+    throw new Error('Uso: import-historico.ts <archivo.xlsx> <empresaId (org_xxx de Clerk)> [SERIES,NO,DISTRIBUIBLES]')
+  }
   const noDistribuibles = new Set(
-    (process.argv[3] ?? 'UCI').split(',').map((s) => s.trim().toUpperCase())
+    (process.argv[4] ?? 'UCI').split(',').map((s) => s.trim().toUpperCase())
   )
 
   const workbook = new ExcelJS.Workbook()
@@ -105,9 +109,9 @@ async function main() {
   for (const [codigo, filasSerie] of porSerie) {
     const distribuible = !noDistribuibles.has(codigo)
     const serie = await prisma.serie.upsert({
-      where: { codigo },
+      where: { empresaId_codigo: { empresaId, codigo } },
       update: {},
-      create: { codigo, distribuible },
+      create: { empresaId, codigo, distribuible },
     })
 
     const numeros = filasSerie.map((f) => f.numero)
@@ -121,6 +125,7 @@ async function main() {
       try {
         await prisma.radicado.create({
           data: {
+            empresaId,
             serieId: serie.id,
             numero: f.numero,
             idExterno: f.idExterno ?? null,
@@ -144,6 +149,7 @@ async function main() {
       if (existentes.has(n)) continue
       await prisma.radicado.create({
         data: {
+          empresaId,
           serieId: serie.id,
           numero: n,
           esGap: true,

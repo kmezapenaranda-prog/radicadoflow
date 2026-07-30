@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/prisma'
 import { RadicadoError, registrarRadicado } from '@/lib/radicados'
+import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
+
+export const dynamic = 'force-dynamic'
 
 interface FilaExcel {
   fila: number
@@ -93,6 +96,16 @@ async function parseExcel(buffer: Buffer): Promise<{ filas: FilaExcel[]; invalid
 }
 
 export async function POST(request: NextRequest) {
+  let empresaId: string
+  try {
+    empresaId = await requireEmpresaId()
+  } catch (error) {
+    if (error instanceof NoEmpresaError) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    throw error
+  }
+
   const { searchParams } = new URL(request.url)
   const soloPreview = searchParams.get('preview') === '1'
 
@@ -132,7 +145,7 @@ export async function POST(request: NextRequest) {
   for (const fila of filasOrdenadas) {
     try {
       const resultado = await prisma.$transaction((tx) =>
-        registrarRadicado(tx, {
+        registrarRadicado(tx, empresaId, {
           serieCodigo: fila.serieCodigo,
           numero: fila.numero,
           descripcion: fila.descripcion,

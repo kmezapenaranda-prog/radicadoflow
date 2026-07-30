@@ -4,12 +4,12 @@ type Tx = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction'
 
 export class RadicadoError extends Error {}
 
-async function asignarSiguientePersona(tx: Tx) {
-  const config = await tx.configuracion.findUnique({ where: { id: 1 } })
+async function asignarSiguientePersona(tx: Tx, empresaId: string) {
+  const config = await tx.configuracion.findUnique({ where: { empresaId } })
   if (!config) throw new RadicadoError('La configuración inicial no existe')
 
   const personas = await tx.persona.findMany({
-    where: { activo: true },
+    where: { empresaId, activo: true },
     orderBy: { orden: 'asc' },
   })
   if (personas.length === 0) {
@@ -20,7 +20,7 @@ async function asignarSiguientePersona(tx: Tx) {
   const turnoSiguiente = (config.turnoActual + 1) % personas.length
 
   await tx.configuracion.update({
-    where: { id: 1 },
+    where: { empresaId },
     data: { turnoActual: turnoSiguiente },
   })
 
@@ -29,18 +29,26 @@ async function asignarSiguientePersona(tx: Tx) {
   return { personaAsignada, turnoSiguiente, personaSiguiente }
 }
 
-export async function getOrCreateSerie(tx: Tx, codigo: string, distribuible = true) {
+export async function getOrCreateSerie(
+  tx: Tx,
+  empresaId: string,
+  codigo: string,
+  distribuible = true
+) {
   const codigoNormalizado = codigo.trim().toUpperCase()
   if (!codigoNormalizado) throw new RadicadoError('El código de la serie es obligatorio')
 
-  const existente = await tx.serie.findUnique({ where: { codigo: codigoNormalizado } })
+  const existente = await tx.serie.findUnique({
+    where: { empresaId_codigo: { empresaId, codigo: codigoNormalizado } },
+  })
   if (existente) return existente
 
-  return tx.serie.create({ data: { codigo: codigoNormalizado, distribuible } })
+  return tx.serie.create({ data: { empresaId, codigo: codigoNormalizado, distribuible } })
 }
 
 async function detectarYMarcarGaps(
   tx: Tx,
+  empresaId: string,
   serieId: number,
   nuevoNumero: number,
   numeroActual: number,
@@ -55,6 +63,7 @@ async function detectarYMarcarGaps(
     if (existente) continue
     await tx.radicado.create({
       data: {
+        empresaId,
         serieId,
         numero: i,
         esGap: true,
@@ -77,14 +86,14 @@ export interface RegistrarRadicadoInput {
   fecha?: Date
 }
 
-export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
+export async function registrarRadicado(tx: Tx, empresaId: string, input: RegistrarRadicadoInput) {
   const { numero, descripcion, creadoPor, idExterno } = input
 
   if (!Number.isInteger(numero) || numero <= 0) {
     throw new RadicadoError('El número de consecutivo debe ser un entero positivo')
   }
 
-  const serie = await getOrCreateSerie(tx, input.serieCodigo)
+  const serie = await getOrCreateSerie(tx, empresaId, input.serieCodigo)
 
   const now = input.fecha ?? new Date()
   const mes = now.getMonth() + 1
@@ -100,7 +109,15 @@ export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
   }
 
   if (!existente && numero > serie.consecutivoActual + 1) {
-    gapsDetectados = await detectarYMarcarGaps(tx, serie.id, numero, serie.consecutivoActual, mes, anio)
+    gapsDetectados = await detectarYMarcarGaps(
+      tx,
+      empresaId,
+      serie.id,
+      numero,
+      serie.consecutivoActual,
+      mes,
+      anio
+    )
   }
 
   let personaAsignada = null
@@ -108,7 +125,7 @@ export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
   let personaSiguiente = null
 
   if (serie.distribuible) {
-    const asignacion = await asignarSiguientePersona(tx)
+    const asignacion = await asignarSiguientePersona(tx, empresaId)
     personaAsignada = asignacion.personaAsignada
     turnoSiguiente = asignacion.turnoSiguiente
     personaSiguiente = asignacion.personaSiguiente
@@ -118,6 +135,7 @@ export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
     ? await tx.radicado.update({
         where: { serieId_numero: { serieId: serie.id, numero } },
         data: {
+          empresaId,
           descripcion: descripcion ?? null,
           creadoPor: creadoPor ?? null,
           idExterno: idExterno ?? null,
@@ -130,6 +148,7 @@ export async function registrarRadicado(tx: Tx, input: RegistrarRadicadoInput) {
       })
     : await tx.radicado.create({
         data: {
+          empresaId,
           serieId: serie.id,
           numero,
           descripcion: descripcion ?? null,

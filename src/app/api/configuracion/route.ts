@@ -1,39 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const configuracion = await prisma.configuracion.upsert({
-    where: { id: 1 },
-    update: {},
-    create: { id: 1 },
-  })
+  try {
+    const empresaId = await requireEmpresaId()
 
-  const personas = await prisma.persona.findMany({
-    where: { activo: true },
-    orderBy: { orden: 'asc' },
-  })
+    const configuracion = await prisma.configuracion.upsert({
+      where: { empresaId },
+      update: {},
+      create: { empresaId },
+    })
 
-  const personaEnTurno = personas.length > 0 ? personas[configuracion.turnoActual % personas.length] : null
+    const personas = await prisma.persona.findMany({
+      where: { empresaId, activo: true },
+      orderBy: { orden: 'asc' },
+    })
 
-  const series = await prisma.serie.findMany({ orderBy: { codigo: 'asc' } })
+    const personaEnTurno = personas.length > 0 ? personas[configuracion.turnoActual % personas.length] : null
 
-  return NextResponse.json({ configuracion, personas, personaEnTurno, series })
+    const series = await prisma.serie.findMany({ where: { empresaId }, orderBy: { codigo: 'asc' } })
+
+    return NextResponse.json({ configuracion, personas, personaEnTurno, series })
+  } catch (error) {
+    if (error instanceof NoEmpresaError) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    throw error
+  }
 }
 
 export async function PUT(request: NextRequest) {
-  const body = await request.json()
-  const { turnoActual } = body as { turnoActual?: number }
+  try {
+    const empresaId = await requireEmpresaId()
+    const body = await request.json()
+    const { turnoActual } = body as { turnoActual?: number }
 
-  const data: { turnoActual?: number } = {}
-  if (typeof turnoActual === 'number') data.turnoActual = turnoActual
+    const data: { turnoActual?: number } = {}
+    if (typeof turnoActual === 'number') data.turnoActual = turnoActual
 
-  const configuracion = await prisma.configuracion.upsert({
-    where: { id: 1 },
-    update: data,
-    create: { id: 1, ...data },
-  })
+    const configuracion = await prisma.configuracion.upsert({
+      where: { empresaId },
+      update: data,
+      create: { empresaId, ...data },
+    })
 
-  return NextResponse.json({ configuracion })
+    return NextResponse.json({ configuracion })
+  } catch (error) {
+    if (error instanceof NoEmpresaError) {
+      return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    throw error
+  }
 }

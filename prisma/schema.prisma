@@ -16,27 +16,35 @@ datasource db {
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
+// Una fila de configuración (turno de rotación) por empresa (tenant),
+// identificada por el id de la Organización de Clerk.
 model Configuracion {
-  id          Int      @id @default(1)
+  empresaId   String   @id
   turnoActual Int      @default(0)
   updatedAt   DateTime @updatedAt
 }
 
 // Una serie de consecutivos con su propio prefijo (CUEM, CUPE, UCI, ...).
-// Cada serie lleva su propia numeración y detección de gaps.
+// Cada serie lleva su propia numeración y detección de gaps, por empresa.
 model Serie {
   id                Int        @id @default(autoincrement())
-  codigo            String     @unique // "CUEM", "CUPE", "UCI"
+  // Tenant (Clerk Organization id).
+  empresaId         String
+  codigo            String // "CUEM", "CUPE", "UCI"
   // Si es false, los radicados de esta serie se registran pero NO se
   // reparten a los trabajadores (ej: UCI se deja sin asignar).
   distribuible      Boolean    @default(true)
   consecutivoActual Int        @default(0)
   radicados         Radicado[]
   createdAt         DateTime   @default(now())
+
+  @@unique([empresaId, codigo])
 }
 
 model Persona {
   id        Int        @id @default(autoincrement())
+  // Tenant (Clerk Organization id).
+  empresaId String
   nombre    String
   email     String?
   orden     Int
@@ -47,6 +55,8 @@ model Persona {
 
 model Radicado {
   id            Int      @id @default(autoincrement())
+  // Tenant (Clerk Organization id).
+  empresaId     String
   serieId       Int
   serie         Serie    @relation(fields: [serieId], references: [id])
   numero        Int

@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { UserButton } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmpresaSwitcher } from '@/components/empresa-switcher'
 import {
   LayoutDashboard,
   PlusCircle,
@@ -70,6 +72,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="hidden px-4 py-5 lg:block">
           <span className="font-heading text-lg font-semibold">RadicadoFlow</span>
           <p className="text-xs text-muted-foreground">Asignación de radicados</p>
+        </div>
+
+        <div className="flex items-center gap-2 border-b p-3">
+          <div className="min-w-0 flex-1">
+            <EmpresaSwitcher mode="compact" />
+          </div>
+          <UserButton afterSignOutUrl="/sign-in" />
         </div>
 
         <nav className="flex flex-col gap-1 p-3">
