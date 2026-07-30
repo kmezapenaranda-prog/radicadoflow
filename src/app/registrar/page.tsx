@@ -36,10 +36,11 @@ interface Serie {
   id: number
   codigo: string
   distribuible: boolean
+  consecutivoActual: number
 }
 
 interface ResultadoRegistro {
-  radicado: { numero: number; serie: { codigo: string }; fechaCreacion: string }
+  radicado: { numero: number; idExterno: number | null; serie: { codigo: string }; fechaCreacion: string }
   personaAsignada: { nombre: string } | null
   personaSiguiente: { nombre: string } | null
   gapsDetectados: number[]
@@ -73,6 +74,7 @@ export default function RegistrarPage() {
   const [serieCodigo, setSerieCodigo] = useState('')
   const [serieNueva, setSerieNueva] = useState('')
   const [numero, setNumero] = useState('')
+  const [idExterno, setIdExterno] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [creadoPor, setCreadoPor] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -86,16 +88,35 @@ export default function RegistrarPage() {
   const [importando, setImportando] = useState(false)
   const [resultadoImport, setResultadoImport] = useState<ResultadoImportacion | null>(null)
 
-  useEffect(() => {
-    fetch('/api/series')
+  function cargarSeries() {
+    return fetch('/api/series')
       .then((res) => res.json())
-      .then((data) => setSeries(data.series ?? []))
-      .catch(() => {})
+      .then((data) => {
+        setSeries(data.series ?? [])
+        setIdExterno(String(data.proximoIdExterno ?? 1))
+        return data.series ?? []
+      })
+      .catch(() => [])
+  }
+
+  useEffect(() => {
+    cargarSeries()
   }, [])
+
+  function siguienteNumeroParaSerie(codigo: string, listaSeries: Serie[] = series) {
+    const serie = listaSeries.find((s) => s.codigo === codigo)
+    return serie ? String(serie.consecutivoActual + 1) : '1'
+  }
+
+  function onCambiarSerie(codigo: string) {
+    setSerieCodigo(codigo)
+    setNumero(codigo === SERIE_NUEVA ? '1' : siguienteNumeroParaSerie(codigo))
+  }
 
   async function registrar() {
     const codigo = serieCodigo === SERIE_NUEVA ? serieNueva.trim() : serieCodigo
     const numeroNum = Number(numero)
+    const idExternoNum = idExterno ? Number(idExterno) : undefined
     if (!codigo) {
       toast.error('Selecciona o escribe una serie (ej: CUEM)')
       return
@@ -114,6 +135,7 @@ export default function RegistrarPage() {
         body: JSON.stringify({
           serieCodigo: codigo,
           numero: numeroNum,
+          idExterno: idExternoNum,
           descripcion: descripcion || undefined,
           creadoPor: creadoPor || undefined,
         }),
@@ -125,14 +147,23 @@ export default function RegistrarPage() {
       }
       setResultado(data)
       toast.success(`Radicado ${data.radicado.serie.codigo}-${data.radicado.numero} registrado`)
-      setNumero('')
       setDescripcion('')
+      if (idExternoNum) setIdExterno(String(idExternoNum + 1))
+
       if (serieCodigo === SERIE_NUEVA) {
-        setSerieCodigo(serieNueva.trim().toUpperCase())
+        const codigoNuevo = serieNueva.trim().toUpperCase()
         setSerieNueva('')
-        fetch('/api/series')
-          .then((r) => r.json())
-          .then((d) => setSeries(d.series ?? []))
+        const listaSeries: Serie[] = await cargarSeries()
+        setSerieCodigo(codigoNuevo)
+        setNumero(siguienteNumeroParaSerie(codigoNuevo, listaSeries))
+      } else {
+        const seriesActualizadas = series.map((s) =>
+          s.codigo === codigo && numeroNum > s.consecutivoActual
+            ? { ...s, consecutivoActual: numeroNum }
+            : s
+        )
+        setSeries(seriesActualizadas)
+        setNumero(siguienteNumeroParaSerie(codigo, seriesActualizadas))
       }
     } catch {
       toast.error('Error de red al registrar el radicado')
@@ -226,7 +257,7 @@ export default function RegistrarPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label>Serie *</Label>
-                  <Select value={serieCodigo} onValueChange={(v) => v && setSerieCodigo(v)}>
+                  <Select value={serieCodigo} onValueChange={(v) => v && onCambiarSerie(v)}>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="CUEM, CUPE, UCI…" />
                     </SelectTrigger>
@@ -250,6 +281,9 @@ export default function RegistrarPage() {
                     placeholder="2531"
                     onKeyDown={(e) => e.key === 'Enter' && registrar()}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Se autocompleta con el siguiente de la serie, puedes corregirlo.
+                  </p>
                 </div>
               </div>
 
@@ -264,6 +298,20 @@ export default function RegistrarPage() {
                   />
                 </div>
               )}
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="idExterno">Id</Label>
+                <Input
+                  id="idExterno"
+                  type="number"
+                  value={idExterno}
+                  onChange={(e) => setIdExterno(e.target.value)}
+                  placeholder="34504"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Consecutivo global del Id (independiente de la serie), se autocompleta con el siguiente.
+                </p>
+              </div>
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="descripcion">Descripción</Label>
@@ -292,7 +340,8 @@ export default function RegistrarPage() {
               {resultado && (
                 <div className="flex flex-col gap-1 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
                   <p>
-                    ✅ Radicado {resultado.radicado.serie.codigo}-{resultado.radicado.numero} registrado
+                    ✅ Radicado {resultado.radicado.serie.codigo}-{resultado.radicado.numero}
+                    {resultado.radicado.idExterno ? ` (Id ${resultado.radicado.idExterno})` : ''} registrado
                   </p>
                   {resultado.distribuible ? (
                     <>

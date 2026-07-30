@@ -6,11 +6,12 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { serieCodigo, numero, descripcion, creadoPor } = body as {
+  const { serieCodigo, numero, descripcion, creadoPor, idExterno } = body as {
     serieCodigo?: string
     numero?: number
     descripcion?: string
     creadoPor?: string
+    idExterno?: number
   }
 
   if (!serieCodigo || !serieCodigo.trim()) {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const resultado = await prisma.$transaction((tx) =>
-      registrarRadicado(tx, { serieCodigo, numero, descripcion, creadoPor })
+      registrarRadicado(tx, { serieCodigo, numero, descripcion, creadoPor, idExterno })
     )
     return NextResponse.json(resultado, { status: 201 })
   } catch (error) {
