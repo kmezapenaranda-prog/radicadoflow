@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
+import { NoEmpresaError } from '@/lib/tenant'
+import { ForbiddenError, requireRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +12,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 
   try {
-    const empresaId = await requireEmpresaId()
+    const { empresaId } = await requireRole(['admin'])
     const body = await request.json()
     const { nombre, email, activo, orden } = body as {
       nombre?: string
@@ -36,6 +37,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
+    }
     throw error
   }
 }
@@ -47,7 +51,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
   }
 
   try {
-    const empresaId = await requireEmpresaId()
+    const { empresaId } = await requireRole(['admin'])
     const { count } = await prisma.persona.updateMany({
       where: { id, empresaId },
       data: { activo: false },
@@ -60,6 +64,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
     }
     throw error
   }

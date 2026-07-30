@@ -31,11 +31,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [personaEnTurno, setPersonaEnTurno] = useState<string | null>(null)
+  const [perfil, setPerfil] = useState<string | null>(null)
+
+  const esRegistrador = perfil === 'registrador'
+  const navItems = esRegistrador ? NAV_ITEMS.filter((item) => item.href === '/consecutivos') : NAV_ITEMS
 
   useEffect(() => {
     fetch('/api/configuracion')
       .then((res) => res.json())
-      .then((data) => setPersonaEnTurno(data.personaEnTurno?.nombre ?? null))
+      .then((data) => {
+        setPersonaEnTurno(data.personaEnTurno?.nombre ?? null)
+        setPerfil(data.perfil ?? null)
+      })
       .catch(() => {})
   }, [pathname])
 
@@ -82,7 +89,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav className="flex flex-col gap-1 p-3">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const activo = pathname === item.href
             const Icon = item.icon
             return (

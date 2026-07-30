@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
+import { ForbiddenError, requireRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,7 +28,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const empresaId = await requireEmpresaId()
+    const { empresaId } = await requireRole(['admin', 'creador'])
     const body = await request.json()
     const { codigo, distribuible, consecutivoActual } = body as {
       codigo?: string
@@ -52,6 +53,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
     }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return NextResponse.json({ error: 'Ya existe una serie con ese código' }, { status: 400 })

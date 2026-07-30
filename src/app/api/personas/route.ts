@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
+import { ForbiddenError, requireRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +23,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const empresaId = await requireEmpresaId()
+    const { empresaId } = await requireRole(['admin'])
     const body = await request.json()
     const { nombre, email } = body as { nombre?: string; email?: string }
 
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
     }
     throw error
   }

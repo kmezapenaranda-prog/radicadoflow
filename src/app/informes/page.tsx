@@ -126,7 +126,7 @@ export default function InformesPage() {
         <div className="flex gap-2">
           <Select value={String(mes)} onValueChange={(v) => v && setMes(Number(v))}>
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue>{(v: string) => MESES[Number(v) - 1] ?? v}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {MESES.map((nombre, i) => (

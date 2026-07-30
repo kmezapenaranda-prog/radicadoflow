@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { RadicadoError, registrarRadicado } from '@/lib/radicados'
 import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
+import { ForbiddenError, requireRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const empresaId = await requireEmpresaId()
+    const { empresaId } = await requireRole(['admin', 'creador'])
     const resultado = await prisma.$transaction((tx) =>
       registrarRadicado(tx, empresaId, { serieCodigo, numero, descripcion, creadoPor, idExterno })
     )
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
     }
     if (error instanceof RadicadoError) {
       return NextResponse.json({ error: error.message }, { status: 400 })

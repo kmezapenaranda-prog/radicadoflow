@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/prisma'
 import { RadicadoError, registrarRadicado } from '@/lib/radicados'
-import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
+import { NoEmpresaError } from '@/lib/tenant'
+import { ForbiddenError, requireRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,10 +99,13 @@ async function parseExcel(buffer: Buffer): Promise<{ filas: FilaExcel[]; invalid
 export async function POST(request: NextRequest) {
   let empresaId: string
   try {
-    empresaId = await requireEmpresaId()
+    ;({ empresaId } = await requireRole(['admin', 'creador']))
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
     }
     throw error
   }

@@ -168,7 +168,7 @@ export default function ConsecutivosPage() {
         <CardHeader className="flex flex-row flex-wrap items-center gap-3">
           <Select value={String(mes)} onValueChange={(v) => v && setMes(Number(v))}>
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue>{(v: string) => MESES[Number(v) - 1] ?? v}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {MESES.map((nombre, i) => (
@@ -180,7 +180,7 @@ export default function ConsecutivosPage() {
           </Select>
           <Select value={String(anio)} onValueChange={(v) => v && setAnio(Number(v))}>
             <SelectTrigger className="w-28">
-              <SelectValue />
+              <SelectValue>{(v: string) => v}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {anios.map((a) => (
@@ -192,7 +192,11 @@ export default function ConsecutivosPage() {
           </Select>
           <Select value={serieId} onValueChange={(v) => v && setSerieId(v)}>
             <SelectTrigger className="w-32">
-              <SelectValue />
+              <SelectValue>
+                {(v: string) =>
+                  v === 'todas' ? 'Todas las series' : series.find((s) => String(s.id) === v)?.codigo ?? v
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas las series</SelectItem>
@@ -205,7 +209,13 @@ export default function ConsecutivosPage() {
           </Select>
           <Select value={personaId} onValueChange={(v) => v && setPersonaId(v)}>
             <SelectTrigger className="w-40">
-              <SelectValue />
+              <SelectValue>
+                {(v: string) =>
+                  v === 'todas'
+                    ? 'Todas las personas'
+                    : personas.find((p) => String(p.id) === v)?.nombre ?? v
+                }
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas las personas</SelectItem>

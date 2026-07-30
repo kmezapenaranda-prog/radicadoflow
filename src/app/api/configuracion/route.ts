@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { NoEmpresaError, requireEmpresaId } from '@/lib/tenant'
+import { NoEmpresaError } from '@/lib/tenant'
+import { ForbiddenError, requireRole, getPerfilActual } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const empresaId = await requireEmpresaId()
+    const { empresaId, perfil } = await getPerfilActual()
 
     const configuracion = await prisma.configuracion.upsert({
       where: { empresaId },
@@ -23,7 +24,7 @@ export async function GET() {
 
     const series = await prisma.serie.findMany({ where: { empresaId }, orderBy: { codigo: 'asc' } })
 
-    return NextResponse.json({ configuracion, personas, personaEnTurno, series })
+    return NextResponse.json({ configuracion, personas, personaEnTurno, series, perfil })
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
@@ -34,7 +35,7 @@ export async function GET() {
 
 export async function PUT(request: NextRequest) {
   try {
-    const empresaId = await requireEmpresaId()
+    const { empresaId } = await requireRole(['admin', 'creador'])
     const body = await request.json()
     const { turnoActual } = body as { turnoActual?: number }
 
@@ -51,6 +52,9 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
+    }
+    if (error instanceof ForbiddenError) {
+      return NextResponse.json({ error: error.message }, { status: 403 })
     }
     throw error
   }

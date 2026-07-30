@@ -36,7 +36,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ArrowDown, ArrowUp, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
+
+const ROLES_EQUIPO = [
+  { value: 'admin', label: 'Admin de la empresa' },
+  { value: 'creador', label: 'Creador de radicados' },
+  { value: 'registrador', label: 'Registrador (solo Consecutivos)' },
+]
+const ROLE_LABELS: Record<string, string> = Object.fromEntries(
+  ROLES_EQUIPO.map((r) => [r.value, r.label])
+)
+
+interface Miembro {
+  id: string
+  userId?: string
+  nombre: string | null
+  email: string | null
+  perfil: string
+}
+
+interface Invitacion {
+  id: string
+  email: string
+}
 
 interface Persona {
   id: number
@@ -59,6 +81,9 @@ interface Serie {
 }
 
 export default function ConfiguracionPage() {
+  const [perfil, setPerfil] = useState<string | null>(null)
+  const esAdmin = perfil === 'admin'
+
   const [personas, setPersonas] = useState<Persona[]>([])
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
   const [personaEnTurnoId, setPersonaEnTurnoId] = useState<number | null>(null)
@@ -75,6 +100,99 @@ export default function ConfiguracionPage() {
   const [series, setSeries] = useState<Serie[]>([])
   const [edicionesConsecutivo, setEdicionesConsecutivo] = useState<Record<number, string>>({})
 
+  const [miembros, setMiembros] = useState<Miembro[]>([])
+  const [invitaciones, setInvitaciones] = useState<Invitacion[]>([])
+  const [cargandoMiembros, setCargandoMiembros] = useState(true)
+  const [dialogMiembroAbierto, setDialogMiembroAbierto] = useState(false)
+  const [emailInvitar, setEmailInvitar] = useState('')
+  const [invitando, setInvitando] = useState(false)
+
+  async function cargarMiembros() {
+    setCargandoMiembros(true)
+    try {
+      const res = await fetch('/api/miembros')
+      if (!res.ok) throw new Error()
+      const data = await res.json()
+      setMiembros(data.miembros ?? [])
+      setInvitaciones(data.invitaciones ?? [])
+    } catch {
+      toast.error('No se pudo cargar el equipo')
+    } finally {
+      setCargandoMiembros(false)
+    }
+  }
+
+  useEffect(() => {
+    if (esAdmin) cargarMiembros()
+  }, [esAdmin])
+
+  async function invitarMiembro() {
+    if (!emailInvitar.trim()) {
+      toast.error('El correo es obligatorio')
+      return
+    }
+    setInvitando(true)
+    try {
+      const res = await fetch('/api/miembros', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailInvitar.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success(`Invitación enviada a ${emailInvitar.trim()}`)
+      setEmailInvitar('')
+      setDialogMiembroAbierto(false)
+      await cargarMiembros()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo enviar la invitación')
+    } finally {
+      setInvitando(false)
+    }
+  }
+
+  async function revocarInvitacion(invitacion: Invitacion) {
+    if (!confirm(`¿Revocar la invitación a ${invitacion.email}?`)) return
+    try {
+      const res = await fetch(`/api/miembros/invitaciones/${invitacion.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      toast.success('Invitación revocada')
+      await cargarMiembros()
+    } catch {
+      toast.error('No se pudo revocar la invitación')
+    }
+  }
+
+  async function cambiarRolMiembro(miembro: Miembro, rol: string) {
+    if (!miembro.userId) return
+    try {
+      const res = await fetch(`/api/miembros/${miembro.userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rol }),
+      })
+      if (!res.ok) throw new Error()
+      toast.success('Rol actualizado')
+      await cargarMiembros()
+    } catch {
+      toast.error('No se pudo cambiar el rol')
+    }
+  }
+
+  async function quitarMiembro(miembro: Miembro) {
+    if (!miembro.userId) return
+    if (!confirm(`¿Quitar a ${miembro.nombre || miembro.email} del equipo?`)) return
+    try {
+      const res = await fetch(`/api/miembros/${miembro.userId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Miembro removido')
+      await cargarMiembros()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'No se pudo quitar al miembro')
+    }
+  }
+
   async function cargarDatos() {
     setCargando(true)
     try {
@@ -85,6 +203,7 @@ export default function ConfiguracionPage() {
       const dataPersonas = await resPersonas.json()
       const dataConfig = await resConfig.json()
 
+      setPerfil(dataConfig.perfil ?? null)
       setPersonas(dataPersonas.personas)
       setConfiguracion(dataConfig.configuracion)
       setPersonaEnTurnoId(dataConfig.personaEnTurno?.id ?? null)
@@ -281,6 +400,7 @@ export default function ConfiguracionPage() {
         </p>
       </div>
 
+      {esAdmin && (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
@@ -395,6 +515,127 @@ export default function ConfiguracionPage() {
           </Table>
         </CardContent>
       </Card>
+      )}
+
+      {esAdmin && (
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Miembros del equipo</CardTitle>
+            <CardDescription>
+              Invita gente por correo y controla qué puede ver o hacer cada quien.
+            </CardDescription>
+          </div>
+          <Dialog open={dialogMiembroAbierto} onOpenChange={setDialogMiembroAbierto}>
+            <DialogTrigger
+              render={
+                <Button size="sm">
+                  <Plus className="mr-1 size-4" /> Invitar
+                </Button>
+              }
+            />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Invitar miembro</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="emailInvitar">Correo</Label>
+                  <Input
+                    id="emailInvitar"
+                    value={emailInvitar}
+                    onChange={(e) => setEmailInvitar(e.target.value)}
+                    placeholder="persona@empresa.com"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cuando acepte la invitación, asígnale su rol en la tabla de abajo.
+                </p>
+              </div>
+              <DialogFooter>
+                <Button onClick={invitarMiembro} disabled={invitando}>
+                  Enviar invitación
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead>
+                <TableHead>Correo</TableHead>
+                <TableHead>Rol</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!cargandoMiembros && miembros.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    Aún no hay miembros invitados
+                  </TableCell>
+                </TableRow>
+              )}
+              {miembros.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="font-medium">{m.nombre || '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">{m.email || '—'}</TableCell>
+                  <TableCell>
+                    <Select value={m.perfil} onValueChange={(v) => v && cambiarRolMiembro(m, v)}>
+                      <SelectTrigger className="w-56">
+                        <SelectValue placeholder="Rol">
+                          {(value: string) => ROLE_LABELS[value] ?? value}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ROLES_EQUIPO.map((r) => (
+                          <SelectItem key={r.value} value={r.value}>
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon-sm" onClick={() => quitarMiembro(m)}>
+                      <X className="size-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {invitaciones.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-medium">Invitaciones pendientes</p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Correo</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invitaciones.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell>{inv.email}</TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="outline" size="sm" onClick={() => revocarInvitacion(inv)}>
+                          Revocar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      )}
 
       <Card>
         <CardHeader>
@@ -408,7 +649,12 @@ export default function ConfiguracionPage() {
             <Label>Turno inicial (quién empieza)</Label>
             <Select value={turnoInicialId} onValueChange={(value) => setTurnoInicialId(value ?? '')}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecciona una persona" />
+                <SelectValue placeholder="Selecciona una persona">
+                  {(value: string) =>
+                    personasActivasOrdenadas.find((p) => String(p.id) === value)?.nombre ??
+                    'Selecciona una persona'
+                  }
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {personasActivasOrdenadas.map((p) => (
