@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useOrganization, useOrganizationList, useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
@@ -39,8 +39,7 @@ export function EmpresaSwitcher({ mode = 'compact', onSeleccionar }: Props) {
   const [nombreNuevo, setNombreNuevo] = useState('')
   const [creando, setCreando] = useState(false)
   const [mostrarForm, setMostrarForm] = useState(false)
-
-  if (!isLoaded) return null
+  const [autoEntrando, setAutoEntrando] = useState(false)
 
   const empresas = userMemberships?.data ?? []
 
@@ -48,6 +47,28 @@ export function EmpresaSwitcher({ mode = 'compact', onSeleccionar }: Props) {
     if (!setActive) return
     await setActive({ organization: orgId })
     onSeleccionar?.()
+  }
+
+  // Si la persona solo pertenece a una empresa, entra directo sin
+  // preguntarle nada (evita el "¿con cuál empresa quieres trabajar?"
+  // cuando en realidad no hay ninguna decisión que tomar).
+  useEffect(() => {
+    if (
+      mode === 'full' &&
+      isLoaded &&
+      !organization &&
+      empresas.length === 1 &&
+      !autoEntrando
+    ) {
+      setAutoEntrando(true)
+      seleccionar(empresas[0].organization.id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, isLoaded, organization, empresas.length])
+
+  if (!isLoaded) return null
+  if (mode === 'full' && autoEntrando) {
+    return <div className="p-6 text-sm text-muted-foreground">Entrando a tu empresa…</div>
   }
 
   async function crearEmpresa() {
