@@ -16,7 +16,25 @@ export default clerkMiddleware(async (auth, req) => {
   if (isPublicRoute(req)) return
 
   const { userId, orgId, redirectToSignIn } = await auth()
-  if (!userId) return redirectToSignIn()
+  if (!userId) {
+    // Un enlace de invitación (o de "aceptar" un ticket) llega con
+    // __clerk_ticket / __clerk_status en la URL. redirectToSignIn() por
+    // defecto empaqueta la URL completa dentro de un solo parámetro
+    // redirect_url, y el componente <SignIn/>/<SignUp/> deja de ver el
+    // ticket como su propio parámetro de nivel superior -- la invitación
+    // se pierde y la persona termina registrándose "suelta", sin empresa.
+    // Por eso el ticket se reenvía tal cual, como parámetros de primer nivel.
+    const ticket = req.nextUrl.searchParams.get('__clerk_ticket')
+    if (ticket) {
+      const status = req.nextUrl.searchParams.get('__clerk_status')
+      const destino = status === 'sign_in' ? '/sign-in' : '/sign-up'
+      const url = new URL(destino, req.url)
+      url.searchParams.set('__clerk_ticket', ticket)
+      if (status) url.searchParams.set('__clerk_status', status)
+      return NextResponse.redirect(url)
+    }
+    return redirectToSignIn()
+  }
 
   if (!orgId && !isSeleccionarEmpresaRoute(req)) {
     return NextResponse.redirect(new URL('/seleccionar-empresa', req.url))
