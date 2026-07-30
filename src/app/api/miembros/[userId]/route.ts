@@ -7,6 +7,24 @@ export const dynamic = 'force-dynamic'
 
 const PERFILES_VALIDOS = ['admin', 'creador', 'registrador']
 
+// Cuenta cuántos miembros de la empresa (distintos de excluirUserId) tienen
+// perfil admin, para no dejar una empresa sin ningún admin.
+async function contarOtrosAdmins(
+  clerk: Awaited<ReturnType<typeof clerkClient>>,
+  empresaId: string,
+  excluirUserId: string
+) {
+  const { data } = await clerk.organizations.getOrganizationMembershipList({
+    organizationId: empresaId,
+    limit: 100,
+  })
+  return data.filter((m) => {
+    if (m.publicUserData?.userId === excluirUserId) return false
+    const perfil = (m.publicMetadata as { perfil?: string } | undefined)?.perfil
+    return (perfil ?? (m.role === 'org:admin' ? 'admin' : 'registrador')) === 'admin'
+  }).length
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
     const { empresaId } = await requireRole(['admin'])
@@ -17,14 +35,19 @@ export async function PATCH(request: NextRequest, { params }: { params: { userId
     if (!rol || !PERFILES_VALIDOS.includes(rol)) {
       return NextResponse.json({ error: 'El rol no es válido' }, { status: 400 })
     }
-    if (params.userId === userId && rol !== 'admin') {
-      return NextResponse.json(
-        { error: 'No puedes quitarte a ti mismo el rol de admin. Pídele a otro admin que lo haga.' },
-        { status: 400 }
-      )
-    }
 
     const clerk = await clerkClient()
+
+    if (params.userId === userId && rol !== 'admin') {
+      const otrosAdmins = await contarOtrosAdmins(clerk, empresaId, userId)
+      if (otrosAdmins === 0) {
+        return NextResponse.json(
+          { error: 'Asigna primero a otro admin antes de quitarte tu propio rol de admin.' },
+          { status: 400 }
+        )
+      }
+    }
+
     // El perfil real (registrador/creador/admin) se guarda como metadata
     // propia, no como rol nativo de Clerk (los roles personalizados de
     // Clerk requieren un complemento de pago). El rol nativo solo se
@@ -58,12 +81,18 @@ export async function DELETE(_request: NextRequest, { params }: { params: { user
   try {
     const { empresaId } = await requireRole(['admin'])
     const { userId } = await auth()
+    const clerk = await clerkClient()
 
     if (params.userId === userId) {
-      return NextResponse.json({ error: 'No puedes quitarte a ti mismo del equipo' }, { status: 400 })
+      const otrosAdmins = await contarOtrosAdmins(clerk, empresaId, userId!)
+      if (otrosAdmins === 0) {
+        return NextResponse.json(
+          { error: 'Asigna primero a otro admin antes de salirte de esta empresa.' },
+          { status: 400 }
+        )
+      }
     }
 
-    const clerk = await clerkClient()
     await clerk.organizations.deleteOrganizationMembership({
       organizationId: empresaId,
       userId: params.userId,
