@@ -10,11 +10,18 @@ const PERFILES_VALIDOS = ['admin', 'creador', 'registrador']
 export async function PATCH(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
     const { empresaId } = await requireRole(['admin'])
+    const { userId } = await auth()
     const body = await request.json()
     const { rol } = body as { rol?: string }
 
     if (!rol || !PERFILES_VALIDOS.includes(rol)) {
       return NextResponse.json({ error: 'El rol no es válido' }, { status: 400 })
+    }
+    if (params.userId === userId && rol !== 'admin') {
+      return NextResponse.json(
+        { error: 'No puedes quitarte a ti mismo el rol de admin. Pídele a otro admin que lo haga.' },
+        { status: 400 }
+      )
     }
 
     const clerk = await clerkClient()

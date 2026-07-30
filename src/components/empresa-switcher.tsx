@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useOrganization, useOrganizationList, useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function EmpresaSwitcher({ mode = 'compact', onSeleccionar }: Props) {
+  const router = useRouter()
   const esAdmin = useEsAdmin()
   const { organization } = useOrganization()
   const { isLoaded, userMemberships, setActive, createOrganization } = useOrganizationList({
@@ -78,7 +80,10 @@ export function EmpresaSwitcher({ mode = 'compact', onSeleccionar }: Props) {
       <Select
         value={organization.id}
         onValueChange={(v) => {
-          if (v === '__nueva__') return
+          if (v === '__nueva__') {
+            router.push('/seleccionar-empresa')
+            return
+          }
           if (v) seleccionar(v)
         }}
       >
@@ -95,6 +100,13 @@ export function EmpresaSwitcher({ mode = 'compact', onSeleccionar }: Props) {
               <span className="truncate">{m.organization.name}</span>
             </SelectItem>
           ))}
+          {esAdmin && (
+            <SelectItem value="__nueva__">
+              <span className="flex items-center gap-1.5 text-indigo-600">
+                <Plus className="size-3.5" /> Crear empresa
+              </span>
+            </SelectItem>
+          )}
         </SelectContent>
       </Select>
     )
