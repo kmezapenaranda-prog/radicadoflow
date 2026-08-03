@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/prisma'
-import { RadicadoError, registrarRadicado } from '@/lib/radicados'
+import { RadicadoError, procesarImportacionLote } from '@/lib/radicados'
 import { NoEmpresaError } from '@/lib/tenant'
 import { ForbiddenError, requireRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
+// Importaciones grandes (varios cientos/miles de filas) pueden tardar más
+// que el límite por defecto -- se procesan en lote (ver procesarImportacionLote)
+// pero se deja margen amplio para archivos realmente grandes.
+export const maxDuration = 60
 
 interface FilaExcel {
   fila: number
@@ -148,38 +152,21 @@ export async function POST(request: NextRequest) {
     return a.numero - b.numero
   })
 
-  const procesados: FilaExcel[] = []
-  const errores: { fila: number; consecutivo: string; error: string }[] = []
-  const gaps: string[] = []
+  try {
+    const { resultados } = await prisma.$transaction(
+      (tx) => procesarImportacionLote(tx, empresaId, filasOrdenadas),
+      { timeout: 55000 }
+    )
 
-  for (const fila of filasOrdenadas) {
-    try {
-      const resultado = await prisma.$transaction((tx) =>
-        registrarRadicado(tx, empresaId, {
-          serieCodigo: fila.serieCodigo,
-          numero: fila.numero,
-          descripcion: fila.descripcion,
-          creadoPor: fila.creadoPor,
-          idExterno: fila.idExterno,
-          entidadNombre: fila.entidadNombre,
-          fecha: fila.fecha,
-        })
-      )
-      procesados.push(fila)
-      gaps.push(...resultado.gapsDetectados.map((n) => `${fila.serieCodigo}-${n}`))
-    } catch (error) {
-      errores.push({
-        fila: fila.fila,
-        consecutivo: `${fila.serieCodigo}-${fila.numero}`,
-        error: error instanceof RadicadoError ? error.message : 'Error inesperado al procesar la fila',
-      })
-    }
+    const errores = resultados
+      .filter((r) => !r.ok)
+      .map((r) => ({ fila: r.fila, consecutivo: `${r.serieCodigo}-${r.numero}`, error: r.error! }))
+    const gaps = resultados.flatMap((r) => r.gapsDetectados.map((n) => `${r.serieCodigo}-${n}`))
+    const procesados = resultados.filter((r) => r.ok).length
+
+    return NextResponse.json({ procesados, errores, gaps, invalidas: invalidas.length })
+  } catch (error) {
+    const message = error instanceof RadicadoError ? error.message : 'No se pudo procesar la importación'
+    return NextResponse.json({ error: message }, { status: 400 })
   }
-
-  return NextResponse.json({
-    procesados: procesados.length,
-    errores,
-    gaps,
-    invalidas: invalidas.length,
-  })
 }
