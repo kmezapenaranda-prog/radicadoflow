@@ -402,7 +402,7 @@ export default function RegistrarPage() {
               </Button>
 
               {resultado && (
-                <div className="relative rotate-[-0.6deg] rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-4 text-sm">
+                <div className="relative rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-4 text-sm">
                   <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary/80">
                     Radicado registrado
                   </p>
@@ -504,7 +504,7 @@ export default function RegistrarPage() {
               )}
 
               {resultadoImport && (
-                <div className="rotate-[-0.6deg] rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-4 text-sm">
+                <div className="rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-4 text-sm">
                   <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary/80">
                     Importación completada
                   </p>

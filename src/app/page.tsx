@@ -116,7 +116,7 @@ export default function DashboardPage() {
         {/* El turno es el corazón humano del sistema: quién recibe el próximo
             radicado. Se trata como un sello, no como una tarjeta más. */}
         <Card className="flex items-center justify-center border-2 border-dashed border-primary/60 bg-accent/40 px-6 py-4 sm:min-w-52">
-          <div className="flex -rotate-2 flex-col items-center gap-1 text-center">
+          <div className="flex flex-col items-center gap-1 text-center">
             <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary/80">
               Turno actual
             </span>

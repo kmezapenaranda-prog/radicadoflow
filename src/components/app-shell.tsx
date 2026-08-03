@@ -132,7 +132,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="px-3 py-2">
             {personaEnTurno ? (
               <span
-                className="num-folio inline-block -rotate-2 rounded-sm border-2 border-primary/70 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
+                className="num-folio inline-block rounded-sm border-2 border-primary/70 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
                 style={{ boxShadow: 'inset 0 0 0 1px color-mix(in oklch, var(--primary), transparent 80%)' }}
               >
                 {personaEnTurno}

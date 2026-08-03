@@ -521,7 +521,7 @@ export default function ConfiguracionPage() {
                     <TableCell className="text-muted-foreground">{persona.email || '—'}</TableCell>
                     <TableCell>
                       {persona.id === personaEnTurnoId && (
-                        <span className="num-folio inline-block -rotate-2 rounded-sm border-2 border-primary/70 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
+                        <span className="num-folio inline-block rounded-sm border-2 border-primary/70 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                           Le toca ahora
                         </span>
                       )}
@@ -604,7 +604,7 @@ export default function ConfiguracionPage() {
                     <p className="text-sm">
                       Usuario creado. Entrégale estos datos para su primer ingreso:
                     </p>
-                    <div className="rotate-[-0.6deg] rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-3 text-sm">
+                    <div className="rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-3 text-sm">
                       <p><span className="text-muted-foreground">Correo:</span> <span className="num-folio">{usuarioCreado.email}</span></p>
                       <p><span className="text-muted-foreground">Contraseña temporal:</span> <span className="num-folio">{usuarioCreado.passwordTemporal}</span></p>
                     </div>
