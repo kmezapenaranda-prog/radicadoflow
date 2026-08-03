@@ -137,9 +137,9 @@ export default function ConsecutivosPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Consecutivos</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Consecutivos</h1>
           <p className="text-sm text-muted-foreground">
-            Línea de tiempo de consecutivos y detección de gaps
+            El libro de radicados: cada número en su lugar, cada vacío a la vista.
           </p>
         </div>
         <a
@@ -156,7 +156,7 @@ export default function ConsecutivosPage() {
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Total asignados
             </span>
-            <span className="text-2xl font-semibold">{totalAsignados}</span>
+            <span className="num-folio text-2xl font-semibold">{totalAsignados}</span>
           </CardContent>
         </Card>
         <Card>
@@ -164,7 +164,7 @@ export default function ConsecutivosPage() {
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Total gaps
             </span>
-            <span className="text-2xl font-semibold text-red-600">{totalGaps}</span>
+            <span className="num-folio text-2xl font-semibold text-destructive">{totalGaps}</span>
           </CardContent>
         </Card>
         <Card>
@@ -172,7 +172,7 @@ export default function ConsecutivosPage() {
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               % Completitud
             </span>
-            <span className="text-2xl font-semibold">{completitud}%</span>
+            <span className="num-folio text-2xl font-semibold">{completitud}%</span>
           </CardContent>
         </Card>
       </div>
@@ -299,18 +299,26 @@ export default function ConsecutivosPage() {
                 </TableRow>
               )}
               {filtradosPagina.map((r) => (
-                <TableRow key={r.id} className={r.esGap ? 'bg-red-50 dark:bg-red-950/30' : ''}>
-                  <TableCell className="font-medium">
-                    {r.serie.codigo}-{r.numero}
+                <TableRow key={r.id} className={r.esGap ? 'fila-gap' : ''}>
+                  <TableCell className="num-folio font-medium">
+                    {r.esGap ? (
+                      <span className="rounded-sm border border-dashed border-destructive/50 px-1.5 py-0.5 text-destructive line-through decoration-2">
+                        {r.serie.codigo}-{r.numero}
+                      </span>
+                    ) : (
+                      <>
+                        {r.serie.codigo}-{r.numero}
+                      </>
+                    )}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{r.idExterno ?? '—'}</TableCell>
+                  <TableCell className="num-folio text-muted-foreground">{r.idExterno ?? '—'}</TableCell>
                   <TableCell>
                     {r.esGap ? (
-                      <Badge variant="destructive">⚠️ GAP</Badge>
+                      <Badge variant="destructive">GAP</Badge>
                     ) : !r.serie.distribuible ? (
                       <Badge variant="outline">No aplica</Badge>
                     ) : (
-                      <Badge variant="secondary">✅ OK</Badge>
+                      <Badge variant="secondary">OK</Badge>
                     )}
                   </TableCell>
                   <TableCell>{r.persona?.nombre ?? '—'}</TableCell>

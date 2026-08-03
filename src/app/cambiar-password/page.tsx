@@ -41,11 +41,14 @@ export default function CambiarPasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <div className="flex w-full max-w-sm flex-col gap-4">
+      <div className="flex w-full max-w-sm flex-col gap-5 rounded-lg border border-border bg-card p-8 shadow-sm">
         <div className="text-center">
-          <h1 className="text-lg font-semibold">Cambia tu contraseña</h1>
-          <p className="text-sm text-muted-foreground">
-            Es tu primer ingreso. Define una contraseña propia antes de continuar.
+          <p className="num-folio mb-2 text-[0.65rem] uppercase tracking-[0.25em] text-muted-foreground">
+            Primer ingreso
+          </p>
+          <h1 className="text-xl font-semibold tracking-tight">Cambia tu contraseña</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Define una contraseña propia antes de continuar.
           </p>
         </div>
         <div className="flex flex-col gap-1.5">

@@ -263,7 +263,7 @@ export default function RegistrarPage() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">Registrar radicado</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Registrar radicado</h1>
         <p className="text-sm text-muted-foreground">
           Registra un radicado individual o importa un histórico desde Excel.
         </p>
@@ -402,24 +402,33 @@ export default function RegistrarPage() {
               </Button>
 
               {resultado && (
-                <div className="flex flex-col gap-1 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
-                  <p>
-                    ✅ Radicado {resultado.radicado.serie.codigo}-{resultado.radicado.numero}
-                    {resultado.radicado.idExterno ? ` (Id ${resultado.radicado.idExterno})` : ''} registrado
+                <div className="relative rotate-[-0.6deg] rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-4 text-sm">
+                  <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary/80">
+                    Radicado registrado
                   </p>
-                  {resultado.radicado.entidad && <p>🏥 Entidad: {resultado.radicado.entidad.nombre}</p>}
-                  {resultado.distribuible ? (
-                    <>
-                      <p>👤 Asignado a: {resultado.personaAsignada?.nombre.toUpperCase()}</p>
-                      <p>📅 Fecha: {formatearFecha(resultado.radicado.fechaCreacion)}</p>
-                      <p>⚡ Siguiente turno: {resultado.personaSiguiente?.nombre.toUpperCase()}</p>
-                    </>
-                  ) : (
-                    <p>ℹ️ Esta serie no se reparte a los trabajadores, queda solo registrada.</p>
-                  )}
+                  <p className="num-folio text-lg font-bold text-primary">
+                    {resultado.radicado.serie.codigo}-{resultado.radicado.numero}
+                    {resultado.radicado.idExterno ? (
+                      <span className="ml-2 text-sm font-normal text-muted-foreground">
+                        Id {resultado.radicado.idExterno}
+                      </span>
+                    ) : null}
+                  </p>
+                  <div className="mt-2 flex flex-col gap-0.5 text-foreground">
+                    {resultado.radicado.entidad && <p>Entidad: {resultado.radicado.entidad.nombre}</p>}
+                    {resultado.distribuible ? (
+                      <>
+                        <p>Asignado a: <span className="font-medium">{resultado.personaAsignada?.nombre.toUpperCase()}</span></p>
+                        <p className="text-muted-foreground">{formatearFecha(resultado.radicado.fechaCreacion)}</p>
+                        <p className="text-muted-foreground">Siguiente turno: {resultado.personaSiguiente?.nombre.toUpperCase()}</p>
+                      </>
+                    ) : (
+                      <p className="text-muted-foreground">Esta serie no se reparte a los trabajadores, queda solo registrada.</p>
+                    )}
+                  </div>
                   {resultado.gapsDetectados.length > 0 && (
-                    <p className="mt-1 text-amber-700">
-                      ⚠️ Se detectaron {resultado.gapsDetectados.length} consecutivos sin radicado (
+                    <p className="mt-2 text-amber-700 dark:text-amber-500">
+                      Se detectaron {resultado.gapsDetectados.length} consecutivos sin radicado (
                       {resultado.gapsDetectados.map((n) => `${resultado.radicado.serie.codigo}-${n}`).join(', ')})
                     </p>
                   )}
@@ -477,7 +486,7 @@ export default function RegistrarPage() {
                     <TableBody>
                       {previewFilas.map((fila) => (
                         <TableRow key={fila.fila}>
-                          <TableCell>
+                          <TableCell className="num-folio">
                             {fila.serieCodigo}-{fila.numero}
                           </TableCell>
                           <TableCell>{fila.descripcion || '—'}</TableCell>
@@ -495,20 +504,23 @@ export default function RegistrarPage() {
               )}
 
               {resultadoImport && (
-                <div className="flex flex-col gap-1 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-900">
-                  <p>✅ {resultadoImport.procesados} radicados procesados</p>
+                <div className="rotate-[-0.6deg] rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-4 text-sm">
+                  <p className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary/80">
+                    Importación completada
+                  </p>
+                  <p className="num-folio text-lg font-bold text-primary">{resultadoImport.procesados} radicados</p>
                   {resultadoImport.invalidas > 0 && (
-                    <p className="text-amber-700">
-                      ⚠️ {resultadoImport.invalidas} filas con formato de consecutivo inválido (se ignoraron)
+                    <p className="mt-1 text-amber-700 dark:text-amber-500">
+                      {resultadoImport.invalidas} filas con formato de consecutivo inválido (se ignoraron)
                     </p>
                   )}
                   {resultadoImport.gaps.length > 0 && (
-                    <p className="text-amber-700">
-                      ⚠️ {resultadoImport.gaps.length} gaps generados ({resultadoImport.gaps.join(', ')})
+                    <p className="mt-1 text-amber-700 dark:text-amber-500">
+                      {resultadoImport.gaps.length} gaps generados ({resultadoImport.gaps.join(', ')})
                     </p>
                   )}
                   {resultadoImport.errores.length > 0 && (
-                    <div className="text-red-700">
+                    <div className="mt-1 text-destructive">
                       <p>{resultadoImport.errores.length} filas con error:</p>
                       <ul className="list-inside list-disc">
                         {resultadoImport.errores.map((err) => (

@@ -108,22 +108,47 @@ export default function DashboardPage() {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
         <p className="text-sm text-muted-foreground">Resumen de radicados y turnos en tiempo real.</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-[auto_1fr_1fr_1fr]">
+        {/* El turno es el corazón humano del sistema: quién recibe el próximo
+            radicado. Se trata como un sello, no como una tarjeta más. */}
+        <Card className="flex items-center justify-center border-2 border-dashed border-primary/60 bg-accent/40 px-6 py-4 sm:min-w-52">
+          <div className="flex -rotate-2 flex-col items-center gap-1 text-center">
+            <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-primary/80">
+              Turno actual
+            </span>
+            {cargando ? (
+              <Skeleton className="h-7 w-28" />
+            ) : (
+              <span className="num-folio text-lg font-bold uppercase tracking-wide text-primary">
+                {personaEnTurno ?? 'Sin asignar'}
+              </span>
+            )}
+            <span className="text-[0.65rem] text-muted-foreground">le toca el próximo radicado</span>
+          </div>
+        </Card>
         <Card>
           <CardContent className="flex flex-col gap-1 pt-4">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Hoy</span>
-            {cargando ? <Skeleton className="h-9 w-12" /> : <span className="text-3xl font-semibold">{hoyTotal}</span>}
+            {cargando ? (
+              <Skeleton className="h-9 w-12" />
+            ) : (
+              <span className="num-folio text-3xl font-semibold">{hoyTotal}</span>
+            )}
             <span className="text-xs text-muted-foreground">radicados</span>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="flex flex-col gap-1 pt-4">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Mes</span>
-            {cargando ? <Skeleton className="h-9 w-12" /> : <span className="text-3xl font-semibold">{mesTotal}</span>}
+            {cargando ? (
+              <Skeleton className="h-9 w-12" />
+            ) : (
+              <span className="num-folio text-3xl font-semibold">{mesTotal}</span>
+            )}
             <span className="text-xs text-muted-foreground">radicados</span>
           </CardContent>
         </Card>
@@ -133,22 +158,9 @@ export default function DashboardPage() {
             {cargando ? (
               <Skeleton className="h-9 w-12" />
             ) : (
-              <span className="text-3xl font-semibold text-red-600">{gapsMes}</span>
+              <span className="num-folio text-3xl font-semibold text-destructive">{gapsMes}</span>
             )}
             <span className="text-xs text-muted-foreground">este mes</span>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex flex-col gap-1 pt-4">
-            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Turno</span>
-            {cargando ? (
-              <Skeleton className="h-7 w-24" />
-            ) : (
-              <span className="truncate text-xl font-semibold text-indigo-600">
-                {personaEnTurno ?? 'Sin asignar'}
-              </span>
-            )}
-            <span className="text-xs text-muted-foreground">le toca</span>
           </CardContent>
         </Card>
       </div>
@@ -189,9 +201,17 @@ export default function DashboardPage() {
                   </TableRow>
                 )}
                 {ultimos.map((r) => (
-                  <TableRow key={r.id} className={r.esGap ? 'bg-red-50 dark:bg-red-950/30' : ''}>
-                    <TableCell className="font-medium">
-                      {r.serie.codigo}-{r.numero}
+                  <TableRow key={r.id} className={r.esGap ? 'fila-gap' : ''}>
+                    <TableCell className="num-folio font-medium">
+                      {r.esGap ? (
+                        <span className="rounded-sm border border-dashed border-destructive/50 px-1.5 py-0.5 text-destructive line-through decoration-2">
+                          {r.serie.codigo}-{r.numero}
+                        </span>
+                      ) : (
+                        <>
+                          {r.serie.codigo}-{r.numero}
+                        </>
+                      )}
                     </TableCell>
                     <TableCell>{r.persona?.nombre ?? '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{r.creadoPor ?? '—'}</TableCell>
@@ -200,7 +220,7 @@ export default function DashboardPage() {
                     </TableCell>
                     <TableCell>
                       {r.esGap ? (
-                        <Badge variant="destructive">⚠️ GAP</Badge>
+                        <Badge variant="destructive">GAP</Badge>
                       ) : !r.serie.distribuible ? (
                         <Badge variant="outline">No aplica</Badge>
                       ) : (
@@ -224,11 +244,11 @@ export default function DashboardPage() {
               <div className="flex h-32 items-end gap-2">
                 {porDia.map((d) => (
                   <div key={d.fecha} className="group relative flex flex-1 flex-col items-center gap-1">
-                    <div className="pointer-events-none absolute -top-7 hidden rounded-md bg-foreground px-1.5 py-0.5 text-xs text-background group-hover:block">
+                    <div className="num-folio pointer-events-none absolute -top-7 hidden rounded-sm bg-foreground px-1.5 py-0.5 text-xs text-background group-hover:block">
                       {d.total}
                     </div>
                     <div
-                      className="w-full min-h-[4px] rounded-t bg-indigo-600 transition-all dark:bg-indigo-400"
+                      className="w-full min-h-[4px] rounded-t bg-primary transition-all"
                       style={{ height: `${(d.total / maxDia) * 100}%` }}
                     />
                     <span className="text-[10px] text-muted-foreground">
@@ -251,12 +271,12 @@ export default function DashboardPage() {
               {topPersonas.map((p, i) => (
                 <div key={p.nombre} className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">
-                    <span className="flex size-5 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                    <span className="num-folio flex size-5 items-center justify-center rounded-full bg-muted text-xs font-medium">
                       {i + 1}
                     </span>
                     {p.nombre}
                   </span>
-                  <span className="text-muted-foreground">
+                  <span className="num-folio text-muted-foreground">
                     {p.total} · {p.porcentaje}%
                   </span>
                 </div>

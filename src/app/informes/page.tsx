@@ -118,7 +118,7 @@ export default function InformesPage() {
     <div className="mx-auto flex max-w-5xl flex-col gap-6 p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Informes mensuales</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Informes mensuales</h1>
           <p className="text-sm text-muted-foreground">
             Informe {MESES[mes - 1]} {anio}
           </p>
@@ -157,17 +157,17 @@ export default function InformesPage() {
         </CardHeader>
         <CardContent className="grid grid-cols-3 divide-x divide-border text-center">
           <div className="flex flex-col gap-1 px-2">
-            <span className="text-3xl font-semibold">{cargando ? '—' : informe?.totalRadicados ?? 0}</span>
+            <span className="num-folio text-3xl font-semibold">{cargando ? '—' : informe?.totalRadicados ?? 0}</span>
             <span className="text-xs text-muted-foreground">Radicados asignados</span>
           </div>
           <div className="flex flex-col gap-1 px-2">
-            <span className="text-3xl font-semibold text-red-600">
+            <span className="num-folio text-3xl font-semibold text-destructive">
               {cargando ? '—' : informe?.totalGaps ?? 0}
             </span>
             <span className="text-xs text-muted-foreground">Consecutivos GAP</span>
           </div>
           <div className="flex flex-col gap-1 px-2">
-            <span className="text-3xl font-semibold">
+            <span className="num-folio text-3xl font-semibold">
               {cargando ? '—' : informe?.totalPersonasActivas ?? 0}
             </span>
             <span className="text-xs text-muted-foreground">Personas activas</span>
@@ -210,9 +210,9 @@ export default function InformesPage() {
               {informe?.porPersona.map((p) => (
                 <TableRow key={p.nombre}>
                   <TableCell className="font-medium">{p.nombre}</TableCell>
-                  <TableCell>{p.total}</TableCell>
-                  <TableCell>{p.porcentaje}%</TableCell>
-                  <TableCell>{p.diasActivos}</TableCell>
+                  <TableCell className="num-folio">{p.total}</TableCell>
+                  <TableCell className="num-folio">{p.porcentaje}%</TableCell>
+                  <TableCell className="num-folio">{p.diasActivos}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -257,9 +257,9 @@ export default function InformesPage() {
                   <TableCell className="font-medium">
                     {format(new Date(dia.fecha), "EEE dd MMM", { locale: es })}
                   </TableCell>
-                  <TableCell>{dia.total}</TableCell>
+                  <TableCell className="num-folio">{dia.total}</TableCell>
                   {personasActivas.map((p) => (
-                    <TableCell key={p.id}>{dia.porPersona.get(p.id) ?? 0}</TableCell>
+                    <TableCell key={p.id} className="num-folio">{dia.porPersona.get(p.id) ?? 0}</TableCell>
                   ))}
                 </TableRow>
               ))}

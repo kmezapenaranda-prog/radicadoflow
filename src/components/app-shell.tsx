@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmpresaSwitcher } from '@/components/empresa-switcher'
 import {
@@ -70,8 +69,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground lg:flex-row">
-      <header className="flex items-center justify-between border-b bg-card px-4 py-3 lg:hidden">
-        <span className="font-heading text-lg font-semibold">RadicadoFlow</span>
+      <header className="flex items-center justify-between border-b border-sidebar-border bg-sidebar px-4 py-3 lg:hidden">
+        <span className="text-lg font-semibold tracking-tight">RadicadoFlow</span>
         <Button variant="ghost" size="icon-sm" onClick={() => setMenuAbierto((v) => !v)}>
           {menuAbierto ? <X className="size-5" /> : <Menu className="size-5" />}
         </Button>
@@ -79,16 +78,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <aside
         className={cn(
-          'w-full shrink-0 border-b bg-card lg:block lg:w-60 lg:border-b-0 lg:border-r',
+          'w-full shrink-0 border-sidebar-border bg-sidebar text-sidebar-foreground lg:block lg:w-64 lg:border-r',
           menuAbierto ? 'block' : 'hidden'
         )}
       >
-        <div className="hidden px-4 py-5 lg:block">
-          <span className="font-heading text-lg font-semibold">RadicadoFlow</span>
-          <p className="text-xs text-muted-foreground">Asignación de radicados</p>
+        <div className="hidden border-b border-sidebar-border px-4 py-5 lg:block">
+          <span className="text-lg font-semibold tracking-tight">RadicadoFlow</span>
+          <p className="num-folio mt-0.5 text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground">
+            Registro de radicados
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 border-b p-3">
+        <div className="flex items-center gap-2 border-b border-sidebar-border p-3">
           <div className="min-w-0 flex-1">
             <EmpresaSwitcher mode="compact" />
           </div>
@@ -111,10 +112,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   activo
-                    ? 'bg-indigo-600 text-white'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground'
+                    : 'text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                 )}
               >
                 <Icon className="size-4" />
@@ -124,13 +125,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        <div className="border-t p-3">
-          <p className="px-3 text-xs text-muted-foreground">Turno actual</p>
-          <div className="px-3 py-1">
+        <div className="border-t border-sidebar-border p-3">
+          <p className="px-3 text-[0.65rem] uppercase tracking-[0.18em] text-muted-foreground">
+            Turno actual
+          </p>
+          <div className="px-3 py-2">
             {personaEnTurno ? (
-              <Badge className="bg-indigo-600 text-white hover:bg-indigo-600">
+              <span
+                className="num-folio inline-block -rotate-2 rounded-sm border-2 border-primary/70 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-primary"
+                style={{ boxShadow: 'inset 0 0 0 1px color-mix(in oklch, var(--primary), transparent 80%)' }}
+              >
                 {personaEnTurno}
-              </Badge>
+              </span>
             ) : (
               <span className="text-xs text-muted-foreground">Sin asignar</span>
             )}

@@ -403,7 +403,7 @@ export default function ConfiguracionPage() {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold">Configuración</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Configuración</h1>
         <p className="text-sm text-muted-foreground">
           Gestiona el equipo y la rotación de turnos para la asignación de radicados.
         </p>
@@ -516,14 +516,14 @@ export default function ConfiguracionPage() {
                 .sort((a, b) => a.orden - b.orden)
                 .map((persona) => (
                   <TableRow key={persona.id}>
-                    <TableCell>{persona.orden}</TableCell>
+                    <TableCell className="num-folio">{persona.orden}</TableCell>
                     <TableCell className="font-medium">{persona.nombre}</TableCell>
                     <TableCell className="text-muted-foreground">{persona.email || '—'}</TableCell>
                     <TableCell>
                       {persona.id === personaEnTurnoId && (
-                        <Badge className="bg-indigo-600 text-white hover:bg-indigo-600">
+                        <span className="num-folio inline-block -rotate-2 rounded-sm border-2 border-primary/70 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-primary">
                           Le toca ahora
-                        </Badge>
+                        </span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -604,9 +604,9 @@ export default function ConfiguracionPage() {
                     <p className="text-sm">
                       Usuario creado. Entrégale estos datos para su primer ingreso:
                     </p>
-                    <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-                      <p><span className="text-muted-foreground">Correo:</span> {usuarioCreado.email}</p>
-                      <p><span className="text-muted-foreground">Contraseña temporal:</span> {usuarioCreado.passwordTemporal}</p>
+                    <div className="rotate-[-0.6deg] rounded-md border-2 border-dashed border-primary/60 bg-accent/40 p-3 text-sm">
+                      <p><span className="text-muted-foreground">Correo:</span> <span className="num-folio">{usuarioCreado.email}</span></p>
+                      <p><span className="text-muted-foreground">Contraseña temporal:</span> <span className="num-folio">{usuarioCreado.passwordTemporal}</span></p>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       Le pedirá cambiarla apenas inicie sesión por primera vez.
@@ -787,7 +787,7 @@ export default function ConfiguracionPage() {
               )}
               {series.map((serie) => (
                 <TableRow key={serie.id}>
-                  <TableCell className="font-medium">{serie.codigo}</TableCell>
+                  <TableCell className="num-folio font-medium">{serie.codigo}</TableCell>
                   <TableCell>
                     <Badge variant={serie.distribuible ? 'default' : 'secondary'}>
                       {serie.distribuible ? 'Sí' : 'No'}

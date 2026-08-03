@@ -137,7 +137,7 @@ export function EmpresaSwitcher({ mode = 'compact', onSeleccionar }: Props) {
             </SelectItem>
           ))}
           <SelectItem value="__nueva__">
-            <span className="flex items-center gap-1.5 text-indigo-600">
+            <span className="flex items-center gap-1.5 text-primary">
               <Plus className="size-3.5" /> Crear empresa
             </span>
           </SelectItem>
@@ -149,7 +149,10 @@ export function EmpresaSwitcher({ mode = 'compact', onSeleccionar }: Props) {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-6">
       <div>
-        <h1 className="text-xl font-semibold">Selecciona una empresa</h1>
+        <p className="num-folio mb-1 text-[0.65rem] uppercase tracking-[0.25em] text-muted-foreground">
+          Selector de empresa
+        </p>
+        <h1 className="text-xl font-semibold tracking-tight">Selecciona una empresa</h1>
         <p className="text-sm text-muted-foreground">
           Elige la empresa con la que quieres trabajar.
         </p>
