@@ -37,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
+import { useEsAdmin as useEsSuperAdmin } from '@/components/empresa-switcher'
 
 const ROLES_EQUIPO = [
   { value: 'admin', label: 'Admin de la empresa' },
@@ -53,12 +54,7 @@ interface Miembro {
   nombre: string | null
   email: string | null
   perfil: string
-}
-
-interface Invitacion {
-  id: string
-  email: string
-  url: string | null
+  debeCambiarPassword: boolean
 }
 
 interface Persona {
@@ -84,6 +80,7 @@ interface Serie {
 export default function ConfiguracionPage() {
   const [perfil, setPerfil] = useState<string | null>(null)
   const esAdmin = perfil === 'admin'
+  const esSuperAdmin = useEsSuperAdmin()
 
   const [personas, setPersonas] = useState<Persona[]>([])
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
@@ -103,11 +100,15 @@ export default function ConfiguracionPage() {
   const [edicionesConsecutivo, setEdicionesConsecutivo] = useState<Record<number, string>>({})
 
   const [miembros, setMiembros] = useState<Miembro[]>([])
-  const [invitaciones, setInvitaciones] = useState<Invitacion[]>([])
   const [cargandoMiembros, setCargandoMiembros] = useState(true)
   const [dialogMiembroAbierto, setDialogMiembroAbierto] = useState(false)
-  const [emailInvitar, setEmailInvitar] = useState('')
-  const [invitando, setInvitando] = useState(false)
+  const [nombreNuevoUsuario, setNombreNuevoUsuario] = useState('')
+  const [emailNuevoUsuario, setEmailNuevoUsuario] = useState('')
+  const [perfilNuevoUsuario, setPerfilNuevoUsuario] = useState('registrador')
+  const [creandoUsuario, setCreandoUsuario] = useState(false)
+  const [usuarioCreado, setUsuarioCreado] = useState<{ email: string; passwordTemporal: string } | null>(
+    null
+  )
 
   async function cargarMiembros() {
     setCargandoMiembros(true)
@@ -116,7 +117,6 @@ export default function ConfiguracionPage() {
       if (!res.ok) throw new Error()
       const data = await res.json()
       setMiembros(data.miembros ?? [])
-      setInvitaciones(data.invitaciones ?? [])
     } catch {
       toast.error('No se pudo cargar el equipo')
     } finally {
@@ -128,53 +128,33 @@ export default function ConfiguracionPage() {
     if (esAdmin) cargarMiembros()
   }, [esAdmin])
 
-  async function invitarMiembro() {
-    if (!emailInvitar.trim()) {
-      toast.error('El correo es obligatorio')
+  async function crearUsuario() {
+    if (!nombreNuevoUsuario.trim() || !emailNuevoUsuario.trim()) {
+      toast.error('Nombre y correo son obligatorios')
       return
     }
-    setInvitando(true)
+    setCreandoUsuario(true)
     try {
-      const res = await fetch('/api/miembros', {
+      const res = await fetch('/api/admin/usuarios', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: emailInvitar.trim() }),
+        body: JSON.stringify({
+          nombre: nombreNuevoUsuario.trim(),
+          email: emailNuevoUsuario.trim(),
+          perfil: perfilNuevoUsuario,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast.success(`Invitación enviada a ${emailInvitar.trim()}`)
-      setEmailInvitar('')
-      setDialogMiembroAbierto(false)
+      setUsuarioCreado({ email: data.email, passwordTemporal: data.passwordTemporal })
+      setNombreNuevoUsuario('')
+      setEmailNuevoUsuario('')
+      setPerfilNuevoUsuario('registrador')
       await cargarMiembros()
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'No se pudo enviar la invitación')
+      toast.error(e instanceof Error ? e.message : 'No se pudo crear el usuario')
     } finally {
-      setInvitando(false)
-    }
-  }
-
-  async function copiarEnlaceInvitacion(invitacion: Invitacion) {
-    if (!invitacion.url) {
-      toast.error('Este enlace ya no está disponible')
-      return
-    }
-    try {
-      await navigator.clipboard.writeText(invitacion.url)
-      toast.success('Enlace copiado, ya lo puedes enviar por WhatsApp o donde prefieras')
-    } catch {
-      toast.error('No se pudo copiar el enlace')
-    }
-  }
-
-  async function revocarInvitacion(invitacion: Invitacion) {
-    if (!confirm(`¿Revocar la invitación a ${invitacion.email}?`)) return
-    try {
-      const res = await fetch(`/api/miembros/invitaciones/${invitacion.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
-      toast.success('Invitación revocada')
-      await cargarMiembros()
-    } catch {
-      toast.error('No se pudo revocar la invitación')
+      setCreandoUsuario(false)
     }
   }
 
@@ -595,42 +575,94 @@ export default function ConfiguracionPage() {
           <div>
             <CardTitle>Miembros del equipo</CardTitle>
             <CardDescription>
-              Invita gente por correo y controla qué puede ver o hacer cada quien.
+              {esSuperAdmin
+                ? 'Crea la cuenta de cada persona y controla qué puede ver o hacer.'
+                : 'Para añadir a alguien nuevo, pídeselo al administrador del sistema. Aquí puedes cambiar el rol de quien ya está.'}
             </CardDescription>
           </div>
-          <Dialog open={dialogMiembroAbierto} onOpenChange={setDialogMiembroAbierto}>
-            <DialogTrigger
-              render={
-                <Button size="sm">
-                  <Plus className="mr-1 size-4" /> Invitar
-                </Button>
-              }
-            />
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invitar miembro</DialogTitle>
-              </DialogHeader>
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="emailInvitar">Correo</Label>
-                  <Input
-                    id="emailInvitar"
-                    value={emailInvitar}
-                    onChange={(e) => setEmailInvitar(e.target.value)}
-                    placeholder="persona@empresa.com"
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Cuando acepte la invitación, asígnale su rol en la tabla de abajo.
-                </p>
-              </div>
-              <DialogFooter>
-                <Button onClick={invitarMiembro} disabled={invitando}>
-                  Enviar invitación
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          {esSuperAdmin && (
+            <Dialog
+              open={dialogMiembroAbierto}
+              onOpenChange={(open) => {
+                setDialogMiembroAbierto(open)
+                if (!open) setUsuarioCreado(null)
+              }}
+            >
+              <DialogTrigger
+                render={
+                  <Button size="sm">
+                    <Plus className="mr-1 size-4" /> Crear usuario
+                  </Button>
+                }
+              />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Crear usuario</DialogTitle>
+                </DialogHeader>
+                {usuarioCreado ? (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-sm">
+                      Usuario creado. Entrégale estos datos para su primer ingreso:
+                    </p>
+                    <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                      <p><span className="text-muted-foreground">Correo:</span> {usuarioCreado.email}</p>
+                      <p><span className="text-muted-foreground">Contraseña temporal:</span> {usuarioCreado.passwordTemporal}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Le pedirá cambiarla apenas inicie sesión por primera vez.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="nombreNuevoUsuario">Nombre</Label>
+                      <Input
+                        id="nombreNuevoUsuario"
+                        value={nombreNuevoUsuario}
+                        onChange={(e) => setNombreNuevoUsuario(e.target.value)}
+                        placeholder="Ej: Ana Martínez"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="emailNuevoUsuario">Correo</Label>
+                      <Input
+                        id="emailNuevoUsuario"
+                        value={emailNuevoUsuario}
+                        onChange={(e) => setEmailNuevoUsuario(e.target.value)}
+                        placeholder="ana@empresa.com"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Rol</Label>
+                      <Select value={perfilNuevoUsuario} onValueChange={(v) => v && setPerfilNuevoUsuario(v)}>
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Rol">
+                            {(value: string) => ROLE_LABELS[value] ?? value}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ROLES_EQUIPO.map((r) => (
+                            <SelectItem key={r.value} value={r.value}>
+                              {r.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  {usuarioCreado ? (
+                    <Button onClick={() => setDialogMiembroAbierto(false)}>Cerrar</Button>
+                  ) : (
+                    <Button onClick={crearUsuario} disabled={creandoUsuario}>
+                      {creandoUsuario ? 'Creando…' : 'Crear usuario'}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <Table>
@@ -646,7 +678,7 @@ export default function ConfiguracionPage() {
               {!cargandoMiembros && miembros.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="text-center text-muted-foreground">
-                    Aún no hay miembros invitados
+                    Aún no hay miembros en el equipo
                   </TableCell>
                 </TableRow>
               )}
@@ -679,35 +711,6 @@ export default function ConfiguracionPage() {
               ))}
             </TableBody>
           </Table>
-
-          {invitaciones.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Invitaciones pendientes</p>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Correo</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {invitaciones.map((inv) => (
-                    <TableRow key={inv.id}>
-                      <TableCell>{inv.email}</TableCell>
-                      <TableCell className="text-right space-x-1">
-                        <Button variant="outline" size="sm" onClick={() => copiarEnlaceInvitacion(inv)}>
-                          Copiar enlace
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => revocarInvitacion(inv)}>
-                          Revocar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
         </CardContent>
       </Card>
       )}

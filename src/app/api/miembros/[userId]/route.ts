@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth, clerkClient } from '@clerk/nextjs/server'
 import { NoEmpresaError } from '@/lib/tenant'
-import { ForbiddenError, requireRole } from '@/lib/roles'
+import { ForbiddenError, requireRole, PERFILES_VALIDOS, type Perfil } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
-
-const PERFILES_VALIDOS = ['admin', 'creador', 'registrador']
 
 // Cuenta cuántos miembros de la empresa (distintos de excluirUserId) tienen
 // perfil admin, para no dejar una empresa sin ningún admin.
@@ -32,7 +30,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { userId
     const body = await request.json()
     const { rol } = body as { rol?: string }
 
-    if (!rol || !PERFILES_VALIDOS.includes(rol)) {
+    if (!rol || !PERFILES_VALIDOS.includes(rol as Perfil)) {
       return NextResponse.json({ error: 'El rol no es válido' }, { status: 400 })
     }
 

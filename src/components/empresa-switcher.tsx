@@ -18,7 +18,7 @@ import { Loader2, Plus } from 'lucide-react'
 
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.toLowerCase()
 
-function useEsAdmin() {
+export function useEsAdmin() {
   const { user } = useUser()
   const email = user?.primaryEmailAddress?.emailAddress?.toLowerCase()
   return !!email && !!ADMIN_EMAIL && email === ADMIN_EMAIL
