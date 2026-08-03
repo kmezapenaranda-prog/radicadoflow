@@ -39,6 +39,7 @@ interface Radicado {
   esGap: boolean
   fechaCreacion: string
   persona: { nombre: string } | null
+  entidad: { nombre: string } | null
 }
 
 interface Serie {
@@ -47,6 +48,11 @@ interface Serie {
 }
 
 interface Persona {
+  id: number
+  nombre: string
+}
+
+interface Entidad {
   id: number
   nombre: string
 }
@@ -66,6 +72,8 @@ export default function ConsecutivosPage() {
   const [series, setSeries] = useState<Serie[]>([])
   const [personaId, setPersonaId] = useState<string>('todas')
   const [personas, setPersonas] = useState<Persona[]>([])
+  const [entidadId, setEntidadId] = useState<string>('todas')
+  const [entidades, setEntidades] = useState<Entidad[]>([])
   const [busqueda, setBusqueda] = useState('')
   const [pagina, setPagina] = useState(1)
   const [radicados, setRadicados] = useState<Radicado[]>([])
@@ -80,6 +88,10 @@ export default function ConsecutivosPage() {
       .then((res) => res.json())
       .then((data) => setPersonas(data.personas ?? []))
       .catch(() => {})
+    fetch('/api/entidades')
+      .then((res) => res.json())
+      .then((data) => setEntidades(data.entidades ?? []))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -87,8 +99,9 @@ export default function ConsecutivosPage() {
       setCargando(true)
       const filtroSerie = serieId !== 'todas' ? `&serieId=${serieId}` : ''
       const filtroPersona = personaId !== 'todas' ? `&personaId=${personaId}` : ''
+      const filtroEntidad = entidadId !== 'todas' ? `&entidadId=${entidadId}` : ''
       const res = await fetch(
-        `/api/radicados?mes=${mes}&anio=${anio}&dir=asc&limit=2000${filtroSerie}${filtroPersona}`
+        `/api/radicados?mes=${mes}&anio=${anio}&dir=asc&limit=2000${filtroSerie}${filtroPersona}${filtroEntidad}`
       )
       const data = await res.json()
       setRadicados(data.radicados ?? [])
@@ -96,7 +109,7 @@ export default function ConsecutivosPage() {
       setCargando(false)
     }
     cargar()
-  }, [mes, anio, serieId, personaId])
+  }, [mes, anio, serieId, personaId, entidadId])
 
   const filtrados = useMemo(() => {
     if (!busqueda.trim()) return radicados
@@ -226,6 +239,25 @@ export default function ConsecutivosPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={entidadId} onValueChange={(v) => v && setEntidadId(v)}>
+            <SelectTrigger className="w-40">
+              <SelectValue>
+                {(v: string) =>
+                  v === 'todas'
+                    ? 'Todas las entidades'
+                    : entidades.find((e) => String(e.id) === v)?.nombre ?? v
+                }
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas las entidades</SelectItem>
+              {entidades.map((e) => (
+                <SelectItem key={e.id} value={String(e.id)}>
+                  {e.nombre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Input
             value={busqueda}
             onChange={(e) => {
@@ -244,6 +276,7 @@ export default function ConsecutivosPage() {
                 <TableHead>Id</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>Persona</TableHead>
+                <TableHead>Entidad</TableHead>
                 <TableHead>Fecha</TableHead>
               </TableRow>
             </TableHeader>
@@ -251,7 +284,7 @@ export default function ConsecutivosPage() {
               {cargando &&
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((__, j) => (
+                    {Array.from({ length: 6 }).map((__, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -260,7 +293,7 @@ export default function ConsecutivosPage() {
                 ))}
               {!cargando && filtradosPagina.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     No hay consecutivos para este filtro
                   </TableCell>
                 </TableRow>
@@ -281,6 +314,7 @@ export default function ConsecutivosPage() {
                     )}
                   </TableCell>
                   <TableCell>{r.persona?.nombre ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.entidad?.nombre ?? '—'}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {r.esGap ? '—' : format(new Date(r.fechaCreacion), 'dd MMM yyyy HH:mm', { locale: es })}
                   </TableCell>

@@ -39,8 +39,19 @@ interface Serie {
   consecutivoActual: number
 }
 
+interface Entidad {
+  id: number
+  nombre: string
+}
+
 interface ResultadoRegistro {
-  radicado: { numero: number; idExterno: number | null; serie: { codigo: string }; fechaCreacion: string }
+  radicado: {
+    numero: number
+    idExterno: number | null
+    serie: { codigo: string }
+    entidad: { nombre: string } | null
+    fechaCreacion: string
+  }
   personaAsignada: { nombre: string } | null
   personaSiguiente: { nombre: string } | null
   gapsDetectados: number[]
@@ -53,6 +64,7 @@ interface FilaExcel {
   numero: number
   descripcion?: string
   creadoPor?: string
+  entidadNombre?: string
 }
 
 interface ResultadoImportacion {
@@ -63,6 +75,7 @@ interface ResultadoImportacion {
 }
 
 const SERIE_NUEVA = '__nueva__'
+const ENTIDAD_NUEVA = '__nueva__'
 
 function formatearFecha(fechaIso: string) {
   const texto = format(new Date(fechaIso), "dd MMM yyyy - hh:mm a", { locale: es })
@@ -77,6 +90,9 @@ export default function RegistrarPage() {
   const [idExterno, setIdExterno] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [creadoPor, setCreadoPor] = useState('')
+  const [entidades, setEntidades] = useState<Entidad[]>([])
+  const [entidadNombre, setEntidadNombre] = useState('')
+  const [entidadNueva, setEntidadNueva] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState<ResultadoRegistro | null>(null)
 
@@ -99,8 +115,19 @@ export default function RegistrarPage() {
       .catch(() => [])
   }
 
+  function cargarEntidades() {
+    return fetch('/api/entidades')
+      .then((res) => res.json())
+      .then((data) => {
+        setEntidades(data.entidades ?? [])
+        return data.entidades ?? []
+      })
+      .catch(() => [])
+  }
+
   useEffect(() => {
     cargarSeries()
+    cargarEntidades()
   }, [])
 
   function siguienteNumeroParaSerie(codigo: string, listaSeries: Serie[] = series) {
@@ -115,6 +142,7 @@ export default function RegistrarPage() {
 
   async function registrar() {
     const codigo = serieCodigo === SERIE_NUEVA ? serieNueva.trim() : serieCodigo
+    const entidad = entidadNombre === ENTIDAD_NUEVA ? entidadNueva.trim() : entidadNombre
     const numeroNum = Number(numero)
     const idExternoNum = idExterno ? Number(idExterno) : undefined
     if (!codigo) {
@@ -138,6 +166,7 @@ export default function RegistrarPage() {
           idExterno: idExternoNum,
           descripcion: descripcion || undefined,
           creadoPor: creadoPor || undefined,
+          entidadNombre: entidad || undefined,
         }),
       })
       const data = await res.json()
@@ -149,6 +178,12 @@ export default function RegistrarPage() {
       toast.success(`Radicado ${data.radicado.serie.codigo}-${data.radicado.numero} registrado`)
       setDescripcion('')
       if (idExternoNum) setIdExterno(String(idExternoNum + 1))
+      if (entidadNombre === ENTIDAD_NUEVA) {
+        setEntidadNueva('')
+        const listaEntidades: Entidad[] = await cargarEntidades()
+        const creada = listaEntidades.find((e) => e.nombre === entidad)
+        if (creada) setEntidadNombre(creada.nombre)
+      }
 
       if (serieCodigo === SERIE_NUEVA) {
         const codigoNuevo = serieNueva.trim().toUpperCase()
@@ -314,6 +349,35 @@ export default function RegistrarPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
+                <Label>Entidad</Label>
+                <Select value={entidadNombre} onValueChange={(v) => v && setEntidadNombre(v)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="EPS o aseguradora que remite" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {entidades.map((e) => (
+                      <SelectItem key={e.id} value={e.nombre}>
+                        {e.nombre}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={ENTIDAD_NUEVA}>+ Nueva entidad…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {entidadNombre === ENTIDAD_NUEVA && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="entidadNueva">Nombre de la nueva entidad</Label>
+                  <Input
+                    id="entidadNueva"
+                    value={entidadNueva}
+                    onChange={(e) => setEntidadNueva(e.target.value)}
+                    placeholder="Ej: NUEVA EPS"
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
                 <Label htmlFor="descripcion">Descripción</Label>
                 <Input
                   id="descripcion"
@@ -343,6 +407,7 @@ export default function RegistrarPage() {
                     ✅ Radicado {resultado.radicado.serie.codigo}-{resultado.radicado.numero}
                     {resultado.radicado.idExterno ? ` (Id ${resultado.radicado.idExterno})` : ''} registrado
                   </p>
+                  {resultado.radicado.entidad && <p>🏥 Entidad: {resultado.radicado.entidad.nombre}</p>}
                   {resultado.distribuible ? (
                     <>
                       <p>👤 Asignado a: {resultado.personaAsignada?.nombre.toUpperCase()}</p>
@@ -370,7 +435,8 @@ export default function RegistrarPage() {
               <CardTitle>Importar histórico</CardTitle>
               <CardDescription>
                 El archivo debe tener una columna &quot;consecutivo&quot; (ej: CUEM-2526). Opcionalmente Id,
-                Descripción y Fecha Radica.
+                Descripción, Fecha Radica y Nombre Entidad (columna F del Excel que compartimos entre
+                empresas).
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -405,6 +471,7 @@ export default function RegistrarPage() {
                         <TableHead>Consecutivo</TableHead>
                         <TableHead>Descripción</TableHead>
                         <TableHead>Registrado por</TableHead>
+                        <TableHead>Entidad</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -415,6 +482,7 @@ export default function RegistrarPage() {
                           </TableCell>
                           <TableCell>{fila.descripcion || '—'}</TableCell>
                           <TableCell>{fila.creadoPor || '—'}</TableCell>
+                          <TableCell>{fila.entidadNombre || '—'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

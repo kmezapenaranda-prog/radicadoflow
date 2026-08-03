@@ -41,6 +41,20 @@ model Serie {
   @@unique([empresaId, codigo])
 }
 
+// Entidad (EPS/aseguradora) que remite el radicado. Se detecta desde la
+// columna "Nombre Entidad" del Excel importado y también se puede elegir al
+// registrar manualmente; sirve para llevar control de qué entidades llegan.
+model Entidad {
+  id        Int        @id @default(autoincrement())
+  // Tenant (Clerk Organization id).
+  empresaId String
+  nombre    String
+  radicados Radicado[]
+  createdAt DateTime   @default(now())
+
+  @@unique([empresaId, nombre])
+}
+
 model Persona {
   id        Int        @id @default(autoincrement())
   // Tenant (Clerk Organization id).
@@ -65,6 +79,8 @@ model Radicado {
   descripcion   String?
   personaId     Int?
   persona       Persona? @relation(fields: [personaId], references: [id])
+  entidadId     Int?
+  entidad       Entidad? @relation(fields: [entidadId], references: [id])
   esGap         Boolean  @default(false)
   creadoPor     String?
   fechaCreacion DateTime @default(now())

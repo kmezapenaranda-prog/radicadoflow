@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
   const radicados = await prisma.radicado.findMany({
     where: { empresaId, mes, anio },
-    include: { persona: true, serie: true },
+    include: { persona: true, serie: true, entidad: true },
     orderBy: [{ serieId: 'asc' }, { numero: 'asc' }],
   })
 
@@ -70,12 +70,13 @@ export async function GET(request: NextRequest) {
   resumen.columns.forEach((col) => (col.width = 20))
 
   const detalle = workbook.addWorksheet('Detalle')
-  detalle.addRow(['Consecutivo', 'Persona', 'Descripción', 'Registrado por', 'Fecha', 'Estado'])
+  detalle.addRow(['Consecutivo', 'Persona', 'Entidad', 'Descripción', 'Registrado por', 'Fecha', 'Estado'])
   detalle.getRow(1).font = { bold: true }
   for (const r of radicados) {
     detalle.addRow([
       `${r.serie.codigo}-${r.numero}`,
       r.persona?.nombre ?? '',
+      r.entidad?.nombre ?? '',
       r.descripcion ?? '',
       r.creadoPor ?? '',
       r.esGap ? '' : r.fechaCreacion.toISOString().replace('T', ' ').slice(0, 16),

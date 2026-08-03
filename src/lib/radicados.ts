@@ -46,6 +46,18 @@ export async function getOrCreateSerie(
   return tx.serie.create({ data: { empresaId, codigo: codigoNormalizado, distribuible } })
 }
 
+export async function getOrCreateEntidad(tx: Tx, empresaId: string, nombre: string) {
+  const nombreNormalizado = nombre.trim()
+  if (!nombreNormalizado) throw new RadicadoError('El nombre de la entidad no puede estar vacío')
+
+  const existente = await tx.entidad.findUnique({
+    where: { empresaId_nombre: { empresaId, nombre: nombreNormalizado } },
+  })
+  if (existente) return existente
+
+  return tx.entidad.create({ data: { empresaId, nombre: nombreNormalizado } })
+}
+
 async function detectarYMarcarGaps(
   tx: Tx,
   empresaId: string,
@@ -83,6 +95,7 @@ export interface RegistrarRadicadoInput {
   descripcion?: string | null
   creadoPor?: string | null
   idExterno?: number | null
+  entidadNombre?: string | null
   fecha?: Date
 }
 
@@ -94,6 +107,9 @@ export async function registrarRadicado(tx: Tx, empresaId: string, input: Regist
   }
 
   const serie = await getOrCreateSerie(tx, empresaId, input.serieCodigo)
+  const entidad = input.entidadNombre?.trim()
+    ? await getOrCreateEntidad(tx, empresaId, input.entidadNombre)
+    : null
 
   const now = input.fecha ?? new Date()
   const mes = now.getMonth() + 1
@@ -140,6 +156,7 @@ export async function registrarRadicado(tx: Tx, empresaId: string, input: Regist
           creadoPor: creadoPor ?? null,
           idExterno: idExterno ?? null,
           personaId: personaAsignada?.id ?? null,
+          entidadId: entidad?.id ?? null,
           esGap: false,
           fechaCreacion: now,
           mes,
@@ -155,6 +172,7 @@ export async function registrarRadicado(tx: Tx, empresaId: string, input: Regist
           creadoPor: creadoPor ?? null,
           idExterno: idExterno ?? null,
           personaId: personaAsignada?.id ?? null,
+          entidadId: entidad?.id ?? null,
           esGap: false,
           fechaCreacion: now,
           mes,
@@ -170,7 +188,7 @@ export async function registrarRadicado(tx: Tx, empresaId: string, input: Regist
   }
 
   return {
-    radicado: { ...radicado, serie },
+    radicado: { ...radicado, serie, entidad },
     personaAsignada,
     turnoSiguiente,
     personaSiguiente,

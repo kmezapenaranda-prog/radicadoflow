@@ -14,6 +14,7 @@ interface FilaExcel {
   idExterno?: number
   descripcion?: string
   creadoPor?: string
+  entidadNombre?: string
   fecha?: Date
 }
 
@@ -61,6 +62,9 @@ async function parseExcel(buffer: Buffer): Promise<{ filas: FilaExcel[]; invalid
   const colDescripcion = columnas['descripción'] ?? columnas['descripcion']
   const colCreadoPor = columnas['creadopor'] ?? columnas['registrado por']
   const colFecha = columnas['fecha radica'] ?? columnas['fecha']
+  // Columna F del Excel compartido entre empresas: nombre de la entidad
+  // (EPS/aseguradora) que remite el radicado.
+  const colEntidad = columnas['nombre entidad'] ?? columnas['entidad']
 
   if (!colConsecutivo) {
     throw new RadicadoError('El archivo debe tener una columna "consecutivo" (ej: CUEM-2526)')
@@ -81,6 +85,7 @@ async function parseExcel(buffer: Buffer): Promise<{ filas: FilaExcel[]; invalid
 
     const idValor = colId ? row.getCell(colId).value : undefined
     const idExterno = idValor ? Number(idValor) : undefined
+    const entidadValor = colEntidad ? String(row.getCell(colEntidad).value ?? '').trim() : ''
 
     filas.push({
       fila: rowNumber,
@@ -89,6 +94,7 @@ async function parseExcel(buffer: Buffer): Promise<{ filas: FilaExcel[]; invalid
       idExterno: idExterno && !Number.isNaN(idExterno) ? idExterno : undefined,
       descripcion: colDescripcion ? String(row.getCell(colDescripcion).value ?? '') : undefined,
       creadoPor: colCreadoPor ? String(row.getCell(colCreadoPor).value ?? '') : undefined,
+      entidadNombre: entidadValor || undefined,
       fecha: colFecha ? parseFecha(row.getCell(colFecha).value) : undefined,
     })
   })
@@ -155,6 +161,7 @@ export async function POST(request: NextRequest) {
           descripcion: fila.descripcion,
           creadoPor: fila.creadoPor,
           idExterno: fila.idExterno,
+          entidadNombre: fila.entidadNombre,
           fecha: fila.fecha,
         })
       )

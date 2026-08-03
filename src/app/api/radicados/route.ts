@@ -8,12 +8,13 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { serieCodigo, numero, descripcion, creadoPor, idExterno } = body as {
+  const { serieCodigo, numero, descripcion, creadoPor, idExterno, entidadNombre } = body as {
     serieCodigo?: string
     numero?: number
     descripcion?: string
     creadoPor?: string
     idExterno?: number
+    entidadNombre?: string
   }
 
   if (!serieCodigo || !serieCodigo.trim()) {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
   try {
     const { empresaId } = await requireRole(['admin', 'creador'])
     const resultado = await prisma.$transaction((tx) =>
-      registrarRadicado(tx, empresaId, { serieCodigo, numero, descripcion, creadoPor, idExterno })
+      registrarRadicado(tx, empresaId, { serieCodigo, numero, descripcion, creadoPor, idExterno, entidadNombre })
     )
     return NextResponse.json(resultado, { status: 201 })
   } catch (error) {
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
     const anio = searchParams.get('anio')
     const personaId = searchParams.get('personaId')
     const serieId = searchParams.get('serieId')
+    const entidadId = searchParams.get('entidadId')
     const limit = searchParams.get('limit')
     const desde = searchParams.get('desde')
     const orden = searchParams.get('orden')
@@ -62,11 +64,12 @@ export async function GET(request: NextRequest) {
     if (anio) where.anio = Number(anio)
     if (personaId) where.personaId = Number(personaId)
     if (serieId) where.serieId = Number(serieId)
+    if (entidadId) where.entidadId = Number(entidadId)
     if (desde) where.fechaCreacion = { gte: new Date(desde) }
 
     const radicados = await prisma.radicado.findMany({
       where,
-      include: { persona: true, serie: true },
+      include: { persona: true, serie: true, entidad: true },
       orderBy:
         orden === 'fecha'
           ? { fechaCreacion: dir }
