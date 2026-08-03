@@ -109,6 +109,9 @@ model Radicado {
   esGap         Boolean  @default(false)
   creadoPor     String?
   fechaCreacion DateTime @default(now())
+  // Columnas O y P del Excel compartido entre empresas.
+  fechaLimite   DateTime?
+  tipoGlosa     String?
   mes           Int
   anio          Int
 

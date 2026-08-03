@@ -8,13 +8,15 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   const body = await request.json()
-  const { serieCodigo, numero, descripcion, creadoPor, idExterno, entidadNombre } = body as {
+  const { serieCodigo, numero, descripcion, creadoPor, idExterno, entidadNombre, fechaLimite, tipoGlosa } = body as {
     serieCodigo?: string
     numero?: number
     descripcion?: string
     creadoPor?: string
     idExterno?: number
     entidadNombre?: string
+    fechaLimite?: string
+    tipoGlosa?: string
   }
 
   if (!serieCodigo || !serieCodigo.trim()) {
@@ -27,7 +29,16 @@ export async function POST(request: NextRequest) {
   try {
     const { empresaId } = await requireRole(['admin', 'creador'])
     const resultado = await prisma.$transaction((tx) =>
-      registrarRadicado(tx, empresaId, { serieCodigo, numero, descripcion, creadoPor, idExterno, entidadNombre })
+      registrarRadicado(tx, empresaId, {
+        serieCodigo,
+        numero,
+        descripcion,
+        creadoPor,
+        idExterno,
+        entidadNombre,
+        tipoGlosa,
+        fechaLimite: fechaLimite ? new Date(fechaLimite) : undefined,
+      })
     )
     return NextResponse.json(resultado, { status: 201 })
   } catch (error) {

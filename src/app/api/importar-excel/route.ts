@@ -19,6 +19,8 @@ interface FilaExcel {
   descripcion?: string
   creadoPor?: string
   entidadNombre?: string
+  fechaLimite?: Date
+  tipoGlosa?: string
   fecha?: Date
 }
 
@@ -69,6 +71,10 @@ async function parseExcel(buffer: Buffer): Promise<{ filas: FilaExcel[]; invalid
   // Columna F del Excel compartido entre empresas: nombre de la entidad
   // (EPS/aseguradora) que remite el radicado.
   const colEntidad = columnas['nombre entidad'] ?? columnas['entidad']
+  // Columnas O y P del mismo Excel compartido: fecha límite de respuesta y
+  // tipo de glosa (glosa/devolución/ratificación).
+  const colFechaLimite = columnas['fecha límite'] ?? columnas['fecha limite']
+  const colTipoGlosa = columnas['tipo glosa']
 
   if (!colConsecutivo) {
     throw new RadicadoError('El archivo debe tener una columna "consecutivo" (ej: CUEM-2526)')
@@ -99,6 +105,8 @@ async function parseExcel(buffer: Buffer): Promise<{ filas: FilaExcel[]; invalid
       descripcion: colDescripcion ? String(row.getCell(colDescripcion).value ?? '') : undefined,
       creadoPor: colCreadoPor ? String(row.getCell(colCreadoPor).value ?? '') : undefined,
       entidadNombre: entidadValor || undefined,
+      fechaLimite: colFechaLimite ? parseFecha(row.getCell(colFechaLimite).value) : undefined,
+      tipoGlosa: colTipoGlosa ? String(row.getCell(colTipoGlosa).value ?? '').trim() || undefined : undefined,
       fecha: colFecha ? parseFecha(row.getCell(colFecha).value) : undefined,
     })
   })

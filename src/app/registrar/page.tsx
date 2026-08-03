@@ -31,6 +31,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Loader2, Upload } from 'lucide-react'
+import { calcularFechaLimiteRespuesta } from '@/lib/dias-habiles-co'
 
 interface Serie {
   id: number
@@ -51,6 +52,8 @@ interface ResultadoRegistro {
     serie: { codigo: string }
     entidad: { nombre: string } | null
     fechaCreacion: string
+    tipoGlosa: string | null
+    fechaLimite: string | null
   }
   personaAsignada: { nombre: string } | null
   personaSiguiente: { nombre: string } | null
@@ -65,6 +68,15 @@ interface FilaExcel {
   descripcion?: string
   creadoPor?: string
   entidadNombre?: string
+  fechaLimite?: string
+  tipoGlosa?: string
+}
+
+function formatearFechaInput(fecha: Date) {
+  const y = fecha.getFullYear()
+  const m = String(fecha.getMonth() + 1).padStart(2, '0')
+  const d = String(fecha.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 interface ResultadoImportacion {
@@ -93,6 +105,8 @@ export default function RegistrarPage() {
   const [entidades, setEntidades] = useState<Entidad[]>([])
   const [entidadNombre, setEntidadNombre] = useState('')
   const [entidadNueva, setEntidadNueva] = useState('')
+  const [tipoGlosa, setTipoGlosa] = useState('')
+  const [fechaLimite, setFechaLimite] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [resultado, setResultado] = useState<ResultadoRegistro | null>(null)
 
@@ -129,6 +143,15 @@ export default function RegistrarPage() {
     cargarSeries()
     cargarEntidades()
   }, [])
+
+  // Resolución 2284 de 2023 (Minsalud), artículo 6: glosas, devoluciones y
+  // ratificaciones tienen 5 días hábiles de plazo de respuesta -- se
+  // autocompleta la fecha límite al elegir el tipo, y se puede corregir a mano.
+  useEffect(() => {
+    if (!tipoGlosa.trim()) return
+    const limite = calcularFechaLimiteRespuesta(new Date(), tipoGlosa)
+    if (limite) setFechaLimite(formatearFechaInput(limite))
+  }, [tipoGlosa])
 
   function siguienteNumeroParaSerie(codigo: string, listaSeries: Serie[] = series) {
     const serie = listaSeries.find((s) => s.codigo === codigo)
@@ -167,6 +190,8 @@ export default function RegistrarPage() {
           descripcion: descripcion || undefined,
           creadoPor: creadoPor || undefined,
           entidadNombre: entidad || undefined,
+          tipoGlosa: tipoGlosa || undefined,
+          fechaLimite: fechaLimite || undefined,
         }),
       })
       const data = await res.json()
@@ -177,6 +202,8 @@ export default function RegistrarPage() {
       setResultado(data)
       toast.success(`Radicado ${data.radicado.serie.codigo}-${data.radicado.numero} registrado`)
       setDescripcion('')
+      setTipoGlosa('')
+      setFechaLimite('')
       if (idExternoNum) setIdExterno(String(idExternoNum + 1))
       if (entidadNombre === ENTIDAD_NUEVA) {
         setEntidadNueva('')
@@ -377,6 +404,33 @@ export default function RegistrarPage() {
                 </div>
               )}
 
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="tipoGlosa">Tipo de glosa</Label>
+                  <Input
+                    id="tipoGlosa"
+                    value={tipoGlosa}
+                    onChange={(e) => setTipoGlosa(e.target.value)}
+                    placeholder="Glosa, devolución, ratificación…"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="fechaLimite">Fecha límite</Label>
+                  <Input
+                    id="fechaLimite"
+                    type="date"
+                    value={fechaLimite}
+                    onChange={(e) => setFechaLimite(e.target.value)}
+                  />
+                </div>
+              </div>
+              {tipoGlosa.trim() && (
+                <p className="-mt-2 text-xs text-muted-foreground">
+                  Se calculó como 5 días hábiles de Colombia desde hoy (Resolución 2284 de 2023). Puedes
+                  corregirla.
+                </p>
+              )}
+
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="descripcion">Descripción</Label>
                 <Input
@@ -416,6 +470,15 @@ export default function RegistrarPage() {
                   </p>
                   <div className="mt-2 flex flex-col gap-0.5 text-foreground">
                     {resultado.radicado.entidad && <p>Entidad: {resultado.radicado.entidad.nombre}</p>}
+                    {resultado.radicado.tipoGlosa && <p>Tipo: {resultado.radicado.tipoGlosa}</p>}
+                    {resultado.radicado.fechaLimite && (
+                      <p>
+                        Fecha límite:{' '}
+                        <span className="font-medium">
+                          {format(new Date(resultado.radicado.fechaLimite), 'dd MMM yyyy', { locale: es })}
+                        </span>
+                      </p>
+                    )}
                     {resultado.distribuible ? (
                       <>
                         <p>Asignado a: <span className="font-medium">{resultado.personaAsignada?.nombre.toUpperCase()}</span></p>
@@ -444,8 +507,8 @@ export default function RegistrarPage() {
               <CardTitle>Importar histórico</CardTitle>
               <CardDescription>
                 El archivo debe tener una columna &quot;consecutivo&quot; (ej: CUEM-2526). Opcionalmente Id,
-                Descripción, Fecha Radica y Nombre Entidad (columna F del Excel que compartimos entre
-                empresas).
+                Descripción, Fecha Radica, Nombre Entidad (columna F), Fecha Límite (columna O) y Tipo
+                Glosa (columna P) del Excel que compartimos entre empresas.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
@@ -481,6 +544,8 @@ export default function RegistrarPage() {
                         <TableHead>Descripción</TableHead>
                         <TableHead>Registrado por</TableHead>
                         <TableHead>Entidad</TableHead>
+                        <TableHead>Fecha límite</TableHead>
+                        <TableHead>Tipo glosa</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -492,6 +557,8 @@ export default function RegistrarPage() {
                           <TableCell>{fila.descripcion || '—'}</TableCell>
                           <TableCell>{fila.creadoPor || '—'}</TableCell>
                           <TableCell>{fila.entidadNombre || '—'}</TableCell>
+                          <TableCell className="num-folio">{fila.fechaLimite || '—'}</TableCell>
+                          <TableCell>{fila.tipoGlosa || '—'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

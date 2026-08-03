@@ -96,11 +96,13 @@ export interface RegistrarRadicadoInput {
   creadoPor?: string | null
   idExterno?: number | null
   entidadNombre?: string | null
+  fechaLimite?: Date | null
+  tipoGlosa?: string | null
   fecha?: Date
 }
 
 export async function registrarRadicado(tx: Tx, empresaId: string, input: RegistrarRadicadoInput) {
-  const { numero, descripcion, creadoPor, idExterno } = input
+  const { numero, descripcion, creadoPor, idExterno, fechaLimite, tipoGlosa } = input
 
   if (!Number.isInteger(numero) || numero <= 0) {
     throw new RadicadoError('El número de consecutivo debe ser un entero positivo')
@@ -157,6 +159,8 @@ export async function registrarRadicado(tx: Tx, empresaId: string, input: Regist
           idExterno: idExterno ?? null,
           personaId: personaAsignada?.id ?? null,
           entidadId: entidad?.id ?? null,
+          fechaLimite: fechaLimite ?? null,
+          tipoGlosa: tipoGlosa ?? null,
           esGap: false,
           fechaCreacion: now,
           mes,
@@ -173,6 +177,8 @@ export async function registrarRadicado(tx: Tx, empresaId: string, input: Regist
           idExterno: idExterno ?? null,
           personaId: personaAsignada?.id ?? null,
           entidadId: entidad?.id ?? null,
+          fechaLimite: fechaLimite ?? null,
+          tipoGlosa: tipoGlosa ?? null,
           esGap: false,
           fechaCreacion: now,
           mes,
@@ -205,6 +211,8 @@ export interface FilaImportacion {
   creadoPor?: string | null
   idExterno?: number | null
   entidadNombre?: string | null
+  fechaLimite?: Date | null
+  tipoGlosa?: string | null
   fecha?: Date
 }
 

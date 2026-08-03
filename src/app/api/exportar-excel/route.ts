@@ -70,7 +70,17 @@ export async function GET(request: NextRequest) {
   resumen.columns.forEach((col) => (col.width = 20))
 
   const detalle = workbook.addWorksheet('Detalle')
-  detalle.addRow(['Consecutivo', 'Persona', 'Entidad', 'Descripción', 'Registrado por', 'Fecha', 'Estado'])
+  detalle.addRow([
+    'Consecutivo',
+    'Persona',
+    'Entidad',
+    'Descripción',
+    'Registrado por',
+    'Fecha',
+    'Estado',
+    'Tipo Glosa',
+    'Fecha Límite',
+  ])
   detalle.getRow(1).font = { bold: true }
   for (const r of radicados) {
     detalle.addRow([
@@ -81,6 +91,8 @@ export async function GET(request: NextRequest) {
       r.creadoPor ?? '',
       r.esGap ? '' : r.fechaCreacion.toISOString().replace('T', ' ').slice(0, 16),
       estadoDe(r),
+      r.tipoGlosa ?? '',
+      r.fechaLimite ? r.fechaLimite.toISOString().slice(0, 10) : '',
     ])
   }
   detalle.columns.forEach((col) => (col.width = 20))

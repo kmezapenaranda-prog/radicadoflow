@@ -40,6 +40,8 @@ interface Radicado {
   fechaCreacion: string
   persona: { nombre: string } | null
   entidad: { nombre: string } | null
+  tipoGlosa: string | null
+  fechaLimite: string | null
 }
 
 interface Serie {
@@ -277,6 +279,8 @@ export default function ConsecutivosPage() {
                 <TableHead>Estado</TableHead>
                 <TableHead>Persona</TableHead>
                 <TableHead>Entidad</TableHead>
+                <TableHead>Tipo glosa</TableHead>
+                <TableHead>Fecha límite</TableHead>
                 <TableHead>Fecha</TableHead>
               </TableRow>
             </TableHeader>
@@ -284,7 +288,7 @@ export default function ConsecutivosPage() {
               {cargando &&
                 Array.from({ length: 6 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 6 }).map((__, j) => (
+                    {Array.from({ length: 8 }).map((__, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -293,7 +297,7 @@ export default function ConsecutivosPage() {
                 ))}
               {!cargando && filtradosPagina.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
                     No hay consecutivos para este filtro
                   </TableCell>
                 </TableRow>
@@ -323,6 +327,16 @@ export default function ConsecutivosPage() {
                   </TableCell>
                   <TableCell>{r.persona?.nombre ?? '—'}</TableCell>
                   <TableCell className="text-muted-foreground">{r.entidad?.nombre ?? '—'}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.tipoGlosa ?? '—'}</TableCell>
+                  <TableCell
+                    className={
+                      r.fechaLimite && !r.esGap && new Date(r.fechaLimite) < new Date()
+                        ? 'num-folio font-medium text-destructive'
+                        : 'num-folio text-muted-foreground'
+                    }
+                  >
+                    {r.fechaLimite ? format(new Date(r.fechaLimite), 'dd MMM yyyy', { locale: es }) : '—'}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {r.esGap ? '—' : format(new Date(r.fechaCreacion), 'dd MMM yyyy HH:mm', { locale: es })}
                   </TableCell>
