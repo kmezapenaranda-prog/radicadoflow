@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { UserButton } from '@clerk/nextjs'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +15,7 @@ import {
   Settings,
   Menu,
   X,
+  LogOut,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -32,6 +32,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const [personaEnTurno, setPersonaEnTurno] = useState<string | null>(null)
   const [perfil, setPerfil] = useState<string | null>(null)
+  const [usuario, setUsuario] = useState<{ nombre: string; email: string } | null>(null)
 
   const esRegistrador = perfil === 'registrador'
   const navItems = esRegistrador ? NAV_ITEMS.filter((item) => item.href === '/consecutivos') : NAV_ITEMS
@@ -42,9 +43,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       .then((data) => {
         setPersonaEnTurno(data.personaEnTurno?.nombre ?? null)
         setPerfil(data.perfil ?? null)
+        setUsuario(data.usuario ?? null)
       })
       .catch(() => {})
   }, [pathname])
+
+  async function cerrarSesion() {
+    await fetch('/api/auth/logout', { method: 'POST' })
+    window.location.assign('/sign-in')
+  }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -85,7 +92,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="min-w-0 flex-1">
             <EmpresaSwitcher mode="compact" />
           </div>
-          <UserButton afterSignOutUrl="/sign-in" />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={usuario ? `${usuario.nombre} (${usuario.email})` : 'Cerrar sesión'}
+            onClick={cerrarSesion}
+          >
+            <LogOut className="size-4" />
+          </Button>
         </div>
 
         <nav className="flex flex-col gap-1 p-3">

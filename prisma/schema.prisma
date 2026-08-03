@@ -16,8 +16,37 @@ datasource db {
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
-// Una fila de configuración (turno de rotación) por empresa (tenant),
-// identificada por el id de la Organización de Clerk.
+// Una empresa (tenant). Reemplaza a las Organizaciones de Clerk: el login y
+// los roles ahora viven enteramente en esta base de datos (ver Usuario).
+model Empresa {
+  id        String    @id @default(cuid())
+  nombre    String
+  createdAt DateTime  @default(now())
+  usuarios  Usuario[]
+}
+
+// Cuenta de acceso a la app. El "perfil" (admin/creador/registrador) se
+// ignora si esSuperAdmin es true -- el super admin es el único que puede
+// pertenecer/ver más de una empresa (empresaId queda null y usa
+// empresaActivaId para saber cuál está viendo en este momento). Cualquier
+// otra cuenta queda fija a una sola empresa desde que se crea.
+model Usuario {
+  id                  String    @id @default(cuid())
+  email               String    @unique
+  passwordHash        String
+  nombre              String
+  perfil              String    @default("registrador")
+  esSuperAdmin        Boolean   @default(false)
+  empresaId           String?
+  empresa             Empresa?  @relation(fields: [empresaId], references: [id])
+  empresaActivaId     String?
+  debeCambiarPassword Boolean   @default(false)
+  intentosFallidos    Int       @default(0)
+  bloqueadoHasta      DateTime?
+  createdAt           DateTime  @default(now())
+}
+
+// Una fila de configuración (turno de rotación) por empresa (tenant).
 model Configuracion {
   empresaId   String   @id
   turnoActual Int      @default(0)
@@ -28,7 +57,6 @@ model Configuracion {
 // Cada serie lleva su propia numeración y detección de gaps, por empresa.
 model Serie {
   id                Int        @id @default(autoincrement())
-  // Tenant (Clerk Organization id).
   empresaId         String
   codigo            String // "CUEM", "CUPE", "UCI"
   // Si es false, los radicados de esta serie se registran pero NO se
@@ -46,7 +74,6 @@ model Serie {
 // registrar manualmente; sirve para llevar control de qué entidades llegan.
 model Entidad {
   id        Int        @id @default(autoincrement())
-  // Tenant (Clerk Organization id).
   empresaId String
   nombre    String
   radicados Radicado[]
@@ -57,7 +84,6 @@ model Entidad {
 
 model Persona {
   id        Int        @id @default(autoincrement())
-  // Tenant (Clerk Organization id).
   empresaId String
   nombre    String
   email     String?
@@ -69,7 +95,6 @@ model Persona {
 
 model Radicado {
   id            Int      @id @default(autoincrement())
-  // Tenant (Clerk Organization id).
   empresaId     String
   serieId       Int
   serie         Serie    @relation(fields: [serieId], references: [id])

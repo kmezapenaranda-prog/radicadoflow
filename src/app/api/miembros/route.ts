@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { clerkClient } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/prisma'
 import { NoEmpresaError } from '@/lib/tenant'
 import { ForbiddenError, requireRole } from '@/lib/roles'
 
@@ -8,25 +8,21 @@ export const dynamic = 'force-dynamic'
 export async function GET() {
   try {
     const { empresaId } = await requireRole(['admin'])
-    const clerk = await clerkClient()
 
-    const { data } = await clerk.organizations.getOrganizationMembershipList({
-      organizationId: empresaId,
-      limit: 100,
+    const miembros = await prisma.usuario.findMany({
+      where: { empresaId },
+      orderBy: { nombre: 'asc' },
     })
 
     return NextResponse.json({
-      miembros: data.map((m) => {
-        const metadata = m.publicMetadata as { perfil?: string; debeCambiarPassword?: boolean } | undefined
-        return {
-          id: m.id,
-          userId: m.publicUserData?.userId,
-          nombre: [m.publicUserData?.firstName, m.publicUserData?.lastName].filter(Boolean).join(' ') || null,
-          email: m.publicUserData?.identifier ?? null,
-          perfil: metadata?.perfil ?? (m.role === 'org:admin' ? 'admin' : 'registrador'),
-          debeCambiarPassword: metadata?.debeCambiarPassword ?? false,
-        }
-      }),
+      miembros: miembros.map((m) => ({
+        id: m.id,
+        userId: m.id,
+        nombre: m.nombre,
+        email: m.email,
+        perfil: m.perfil,
+        debeCambiarPassword: m.debeCambiarPassword,
+      })),
     })
   } catch (error) {
     if (error instanceof NoEmpresaError) {

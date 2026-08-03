@@ -1,9 +1,10 @@
-import { auth } from '@clerk/nextjs/server'
+import { obtenerUsuarioSesion } from './sesion'
 
 export class NoEmpresaError extends Error {}
 
 export async function requireEmpresaId(): Promise<string> {
-  const { orgId } = await auth()
-  if (!orgId) throw new NoEmpresaError('No hay una empresa activa seleccionada')
-  return orgId
+  const usuario = await obtenerUsuarioSesion()
+  if (!usuario) throw new NoEmpresaError('No hay sesión activa')
+  if (!usuario.empresaId) throw new NoEmpresaError('No hay una empresa activa seleccionada')
+  return usuario.empresaId
 }

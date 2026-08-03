@@ -1,35 +1,34 @@
-import { auth, clerkClient } from '@clerk/nextjs/server'
 import { NoEmpresaError } from './tenant'
+import { obtenerUsuarioSesion } from './sesion'
 
 export class ForbiddenError extends Error {}
 
 export type Perfil = 'admin' | 'creador' | 'registrador'
 export const PERFILES_VALIDOS: Perfil[] = ['admin', 'creador', 'registrador']
 
-// El "perfil" de cada persona dentro de su empresa se guarda como metadata
-// pública de su membresía de Clerk Organization (publicMetadata.perfil),
-// no como un rol nativo de Clerk — los roles personalizados de Clerk
-// requieren un complemento de pago ("B2B Authentication add-on") que este
-// proyecto no usa.
-export async function getPerfilActual(): Promise<{ empresaId: string; userId: string; perfil: Perfil }> {
-  const { orgId, userId } = await auth()
-  if (!orgId) throw new NoEmpresaError('No hay una empresa activa seleccionada')
-  if (!userId) throw new NoEmpresaError('No hay sesión activa')
+// El "perfil" de cada persona dentro de su empresa vive en la tabla Usuario
+// (columna perfil), salvo el super admin, para quien siempre se resuelve
+// como "admin" (ver resolverClaims en sesion.ts).
+export async function getPerfilActual(): Promise<{
+  empresaId: string
+  userId: string
+  perfil: Perfil
+  esSuperAdmin: boolean
+  nombre: string
+  email: string
+}> {
+  const usuario = await obtenerUsuarioSesion()
+  if (!usuario) throw new NoEmpresaError('No hay sesión activa')
+  if (!usuario.empresaId) throw new NoEmpresaError('No hay una empresa activa seleccionada')
 
-  const clerk = await clerkClient()
-  const { data } = await clerk.organizations.getOrganizationMembershipList({
-    organizationId: orgId,
-    userId: [userId],
-    limit: 1,
-  })
-  const membresia = data[0]
-  const metadataPerfil = (membresia?.publicMetadata as { perfil?: Perfil } | undefined)?.perfil
-  // Quien crea la empresa queda como org:admin nativo de Clerk; si todavía
-  // no tiene perfil propio asignado, se le trata como admin por defecto.
-  // Cualquier otro miembro sin perfil asignado cae al más restrictivo.
-  const perfil: Perfil = metadataPerfil ?? (membresia?.role === 'org:admin' ? 'admin' : 'registrador')
-
-  return { empresaId: orgId, userId, perfil }
+  return {
+    empresaId: usuario.empresaId,
+    userId: usuario.usuarioId,
+    perfil: usuario.perfil as Perfil,
+    esSuperAdmin: usuario.esSuperAdmin,
+    nombre: usuario.nombre,
+    email: usuario.email,
+  }
 }
 
 export async function requireRole(rolesPermitidos: Perfil[]) {
@@ -40,21 +39,14 @@ export async function requireRole(rolesPermitidos: Perfil[]) {
   return { empresaId, perfil }
 }
 
-// El dueño del sistema (una sola persona, identificada por su correo) es
-// quien crea las cuentas de los usuarios directamente -- nadie se
-// autorregistra ni se invita por correo. Esta comprobación es server-side
-// aparte del chequeo de UI en empresa-switcher.tsx, que solo oculta botones.
+// El dueño del sistema (una sola cuenta, marcada con Usuario.esSuperAdmin)
+// es quien crea las empresas y las cuentas de los usuarios directamente --
+// nadie se autorregistra ni se invita por correo.
 export async function requireSuperAdmin() {
-  const { userId } = await auth()
-  if (!userId) throw new NoEmpresaError('No hay sesión activa')
-
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL?.toLowerCase()
-  const clerk = await clerkClient()
-  const user = await clerk.users.getUser(userId)
-  const email = user.primaryEmailAddress?.emailAddress?.toLowerCase()
-
-  if (!email || !adminEmail || email !== adminEmail) {
+  const usuario = await obtenerUsuarioSesion()
+  if (!usuario) throw new NoEmpresaError('No hay sesión activa')
+  if (!usuario.esSuperAdmin) {
     throw new ForbiddenError('Solo el administrador del sistema puede hacer esto')
   }
-  return { userId }
+  return { userId: usuario.usuarioId }
 }

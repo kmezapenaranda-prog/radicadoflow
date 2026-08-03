@@ -1,23 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 export default function CambiarPasswordPage() {
-  const { user } = useUser()
-  const router = useRouter()
   const [actual, setActual] = useState('')
   const [nueva, setNueva] = useState('')
   const [confirmar, setConfirmar] = useState('')
   const [guardando, setGuardando] = useState(false)
 
   async function guardar() {
-    if (!user) return
     if (nueva.length < 8) {
       toast.error('La nueva contraseña debe tener al menos 8 caracteres')
       return
@@ -28,19 +23,17 @@ export default function CambiarPasswordPage() {
     }
     setGuardando(true)
     try {
-      await user.updatePassword({ currentPassword: actual, newPassword: nueva })
-      const res = await fetch('/api/cambiar-password', { method: 'POST' })
-      if (!res.ok) throw new Error()
+      const res = await fetch('/api/cambiar-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ actual, nueva }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
       toast.success('Contraseña actualizada')
       window.location.assign('/')
     } catch (e) {
-      const mensaje =
-        e && typeof e === 'object' && 'errors' in e
-          ? String((e as { errors?: { message?: string }[] }).errors?.[0]?.message)
-          : e instanceof Error
-            ? e.message
-            : 'No se pudo cambiar la contraseña'
-      toast.error(mensaje)
+      toast.error(e instanceof Error ? e.message : 'No se pudo cambiar la contraseña')
     } finally {
       setGuardando(false)
     }

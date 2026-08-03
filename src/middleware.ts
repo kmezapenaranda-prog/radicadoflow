@@ -1,59 +1,64 @@
-import { clerkMiddleware, clerkClient, createRouteMatcher } from '@clerk/nextjs/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { SESSION_COOKIE_NAME, verificarSesion } from '@/lib/auth/jwt'
 
-const isPublicRoute = createRouteMatcher(['/sign-in(.*)', '/sign-up(.*)'])
-const isSeleccionarEmpresaRoute = createRouteMatcher(['/seleccionar-empresa(.*)'])
-const isCambiarPasswordRoute = createRouteMatcher(['/cambiar-password(.*)'])
+const RUTAS_PUBLICAS = ['/sign-in', '/sign-up', '/api/auth/login', '/api/auth/logout']
+
+function empiezaCon(pathname: string, base: string) {
+  return pathname === base || pathname.startsWith(base + '/')
+}
+
+function esRutaPublica(pathname: string) {
+  return RUTAS_PUBLICAS.some((r) => empiezaCon(pathname, r))
+}
+
 // El perfil "registrador" solo puede ver /consecutivos; el resto de páginas
 // (no las rutas de API, esas se validan por endpoint) lo redirigen ahí.
-const isRestringidaParaRegistrador = createRouteMatcher([
-  '/',
-  '/registrar(.*)',
-  '/informes(.*)',
-  '/configuracion(.*)',
-])
+function esRutaRestringidaParaRegistrador(pathname: string) {
+  if (pathname === '/') return true
+  return ['/registrar', '/informes', '/configuracion'].some((r) => empiezaCon(pathname, r))
+}
 
-export default clerkMiddleware(async (auth, req) => {
-  if (isPublicRoute(req)) return
+export async function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl
+  if (esRutaPublica(pathname)) return NextResponse.next()
 
-  const { userId, orgId, redirectToSignIn } = await auth()
-  if (!userId) {
-    return redirectToSignIn()
+  const token = req.cookies.get(SESSION_COOKIE_NAME)?.value
+  const claims = token ? await verificarSesion(token) : null
+
+  if (!claims) {
+    return NextResponse.redirect(new URL('/sign-in', req.url))
   }
 
-  if (!orgId && !isSeleccionarEmpresaRoute(req)) {
-    return NextResponse.redirect(new URL('/seleccionar-empresa', req.url))
-  }
-
-  if (orgId && !req.nextUrl.pathname.startsWith('/api')) {
-    // El perfil real y el flag de "debe cambiar contraseña" se guardan en la
-    // metadata de la membresía (no son nativos de Clerk), así que hay que
-    // consultarlos con una llamada aparte.
-    const clerk = await clerkClient()
-    const { data } = await clerk.organizations.getOrganizationMembershipList({
-      organizationId: orgId,
-      userId: [userId],
-      limit: 1,
-    })
-    const metadata = data[0]?.publicMetadata as
-      | { perfil?: string; debeCambiarPassword?: boolean }
-      | undefined
-
-    if (metadata?.debeCambiarPassword && !isCambiarPasswordRoute(req)) {
+  // El cambio de contraseña obligatorio va primero -- ni siquiera dejamos
+  // elegir/crear empresa con la contraseña temporal todavía puesta.
+  if (!pathname.startsWith('/api')) {
+    if (claims.debeCambiarPassword && !empiezaCon(pathname, '/cambiar-password')) {
       return NextResponse.redirect(new URL('/cambiar-password', req.url))
     }
-    if (!metadata?.debeCambiarPassword && isCambiarPasswordRoute(req)) {
+    if (!claims.debeCambiarPassword && empiezaCon(pathname, '/cambiar-password')) {
       return NextResponse.redirect(new URL('/', req.url))
     }
+  }
+
+  if (!pathname.startsWith('/api')) {
     if (
-      !metadata?.debeCambiarPassword &&
-      metadata?.perfil === 'registrador' &&
-      isRestringidaParaRegistrador(req)
+      !claims.debeCambiarPassword &&
+      !claims.empresaId &&
+      !empiezaCon(pathname, '/seleccionar-empresa')
+    ) {
+      return NextResponse.redirect(new URL('/seleccionar-empresa', req.url))
+    }
+    if (
+      !claims.debeCambiarPassword &&
+      claims.perfil === 'registrador' &&
+      esRutaRestringidaParaRegistrador(pathname)
     ) {
       return NextResponse.redirect(new URL('/consecutivos', req.url))
     }
   }
-})
+
+  return NextResponse.next()
+}
 
 export const config = {
   matcher: [

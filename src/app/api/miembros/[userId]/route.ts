@@ -1,43 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth, clerkClient } from '@clerk/nextjs/server'
+import { prisma } from '@/lib/prisma'
 import { NoEmpresaError } from '@/lib/tenant'
-import { ForbiddenError, requireRole, PERFILES_VALIDOS, type Perfil } from '@/lib/roles'
+import { ForbiddenError, getPerfilActual, PERFILES_VALIDOS, type Perfil } from '@/lib/roles'
+import { hashPassword, PASSWORD_TEMPORAL } from '@/lib/auth/password'
 
 export const dynamic = 'force-dynamic'
 
-// Cuenta cuántos miembros de la empresa (distintos de excluirUserId) tienen
+// Cuenta cuántos miembros de la empresa (distintos de excluirId) tienen
 // perfil admin, para no dejar una empresa sin ningún admin.
-async function contarOtrosAdmins(
-  clerk: Awaited<ReturnType<typeof clerkClient>>,
-  empresaId: string,
-  excluirUserId: string
-) {
-  const { data } = await clerk.organizations.getOrganizationMembershipList({
-    organizationId: empresaId,
-    limit: 100,
+async function contarOtrosAdmins(empresaId: string, excluirId: string) {
+  return prisma.usuario.count({
+    where: { empresaId, perfil: 'admin', id: { not: excluirId } },
   })
-  return data.filter((m) => {
-    if (m.publicUserData?.userId === excluirUserId) return false
-    const perfil = (m.publicMetadata as { perfil?: string } | undefined)?.perfil
-    return (perfil ?? (m.role === 'org:admin' ? 'admin' : 'registrador')) === 'admin'
-  }).length
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const { empresaId } = await requireRole(['admin'])
-    const { userId } = await auth()
+    const { empresaId, userId, perfil: perfilActual } = await getPerfilActual()
+    if (perfilActual !== 'admin') {
+      throw new ForbiddenError('No tienes permiso para hacer esto')
+    }
+
+    const objetivo = await prisma.usuario.findUnique({ where: { id: params.userId } })
+    if (!objetivo || objetivo.empresaId !== empresaId) {
+      return NextResponse.json({ error: 'Esa persona no pertenece a tu empresa' }, { status: 404 })
+    }
+
     const body = await request.json()
-    const { rol } = body as { rol?: string }
+    const { rol, resetPassword } = body as { rol?: string; resetPassword?: boolean }
+
+    if (resetPassword) {
+      const passwordHash = await hashPassword(PASSWORD_TEMPORAL)
+      await prisma.usuario.update({
+        where: { id: params.userId },
+        data: { passwordHash, debeCambiarPassword: true },
+      })
+      return NextResponse.json({ passwordTemporal: PASSWORD_TEMPORAL })
+    }
 
     if (!rol || !PERFILES_VALIDOS.includes(rol as Perfil)) {
       return NextResponse.json({ error: 'El rol no es válido' }, { status: 400 })
     }
 
-    const clerk = await clerkClient()
-
     if (params.userId === userId && rol !== 'admin') {
-      const otrosAdmins = await contarOtrosAdmins(clerk, empresaId, userId)
+      const otrosAdmins = await contarOtrosAdmins(empresaId, userId)
       if (otrosAdmins === 0) {
         return NextResponse.json(
           { error: 'Asigna primero a otro admin antes de quitarte tu propio rol de admin.' },
@@ -46,23 +52,12 @@ export async function PATCH(request: NextRequest, { params }: { params: { userId
       }
     }
 
-    // El perfil real (registrador/creador/admin) se guarda como metadata
-    // propia, no como rol nativo de Clerk (los roles personalizados de
-    // Clerk requieren un complemento de pago). El rol nativo solo se
-    // sincroniza a "org:admin"/"org:member" porque Clerk exige org:admin
-    // nativo para poder invitar e gestionar miembros.
-    await clerk.organizations.updateOrganizationMembership({
-      organizationId: empresaId,
-      userId: params.userId,
-      role: rol === 'admin' ? 'org:admin' : 'org:member',
-    })
-    const membresia = await clerk.organizations.updateOrganizationMembershipMetadata({
-      organizationId: empresaId,
-      userId: params.userId,
-      publicMetadata: { perfil: rol },
+    const actualizado = await prisma.usuario.update({
+      where: { id: params.userId },
+      data: { perfil: rol },
     })
 
-    return NextResponse.json({ membresia })
+    return NextResponse.json({ miembro: actualizado })
   } catch (error) {
     if (error instanceof NoEmpresaError) {
       return NextResponse.json({ error: error.message }, { status: 401 })
@@ -70,19 +65,25 @@ export async function PATCH(request: NextRequest, { params }: { params: { userId
     if (error instanceof ForbiddenError) {
       return NextResponse.json({ error: error.message }, { status: 403 })
     }
-    const message = error instanceof Error ? error.message : 'No se pudo cambiar el rol'
+    const message = error instanceof Error ? error.message : 'No se pudo actualizar a la persona'
     return NextResponse.json({ error: message }, { status: 400 })
   }
 }
 
 export async function DELETE(_request: NextRequest, { params }: { params: { userId: string } }) {
   try {
-    const { empresaId } = await requireRole(['admin'])
-    const { userId } = await auth()
-    const clerk = await clerkClient()
+    const { empresaId, userId, perfil: perfilActual } = await getPerfilActual()
+    if (perfilActual !== 'admin') {
+      throw new ForbiddenError('No tienes permiso para hacer esto')
+    }
+
+    const objetivo = await prisma.usuario.findUnique({ where: { id: params.userId } })
+    if (!objetivo || objetivo.empresaId !== empresaId) {
+      return NextResponse.json({ error: 'Esa persona no pertenece a tu empresa' }, { status: 404 })
+    }
 
     if (params.userId === userId) {
-      const otrosAdmins = await contarOtrosAdmins(clerk, empresaId, userId!)
+      const otrosAdmins = await contarOtrosAdmins(empresaId, userId)
       if (otrosAdmins === 0) {
         return NextResponse.json(
           { error: 'Asigna primero a otro admin antes de salirte de esta empresa.' },
@@ -91,10 +92,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: { user
       }
     }
 
-    await clerk.organizations.deleteOrganizationMembership({
-      organizationId: empresaId,
-      userId: params.userId,
-    })
+    await prisma.usuario.delete({ where: { id: params.userId } })
 
     return NextResponse.json({ ok: true })
   } catch (error) {

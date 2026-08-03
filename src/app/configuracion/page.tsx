@@ -37,7 +37,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ArrowDown, ArrowUp, Plus, X } from 'lucide-react'
-import { useEsAdmin as useEsSuperAdmin } from '@/components/empresa-switcher'
 
 const ROLES_EQUIPO = [
   { value: 'admin', label: 'Admin de la empresa' },
@@ -80,7 +79,7 @@ interface Serie {
 export default function ConfiguracionPage() {
   const [perfil, setPerfil] = useState<string | null>(null)
   const esAdmin = perfil === 'admin'
-  const esSuperAdmin = useEsSuperAdmin()
+  const [esSuperAdmin, setEsSuperAdmin] = useState(false)
 
   const [personas, setPersonas] = useState<Persona[]>([])
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
@@ -199,6 +198,7 @@ export default function ConfiguracionPage() {
       const dataConfig = await resConfig.json()
 
       setPerfil(dataConfig.perfil ?? null)
+      setEsSuperAdmin(dataConfig.esSuperAdmin ?? false)
       setPersonas(dataPersonas.personas)
       setConfiguracion(dataConfig.configuracion)
       setPersonaEnTurnoId(dataConfig.personaEnTurno?.id ?? null)
